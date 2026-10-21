@@ -106,6 +106,15 @@ against the passing grade and a step-by-step explanation for every question.
 The three UTBK and three CPNS questions live in `questions.js` and are
 placeholder content, not real exam questions.
 
+**Tanya AI** is the study helper. It opens from a floating button on the
+dashboard (never during a running try out, so it cannot be used to cheat)
+and from a "Tanya AI" button on every question in Review mode. The chat
+screen (`/tanya-ai`) has quick chips, a sticky composer and a
+`Penjelasan tersimpan` list (`/tanya-ai/riwayat`). Opening it from a
+question attaches the question, the options, the viewer's answer and the
+answer key. Each person gets 10 questions a day (a day is a WIB calendar
+day), counted by the server; the counter resets at 00.00 WIB.
+
 ## Your people's data
 
 `usernode-user-data.js` erases a person's rows when they delete their
@@ -185,6 +194,18 @@ Re-theme by changing the token values there, keeping every text pair at
 
 - Both tables, `profiles` and `attempts`, are marked `staging:private`; both
   are keyed by `user_id`, so `usernode-user-data.js` covers them as is.
+- Tanya AI's two tables, `ai_chats` (one saved conversation per question or
+  the general chat) and `ai_usage` (the daily counter), are also
+  `staging:private` and keyed by `user_id`, so `usernode-user-data.js`
+  covers them as is.
+- Tanya AI calls the platform's Claude proxy through `ai.js` (production
+  only). Staging previews and standalone runs have no proxy token, so
+  `ai.js` answers with the sample content in `ai-content.js`, and the page
+  labels those replies "Contoh". The routes, quota and stored history are
+  identical in both cases: only the answer source changes, never a feature.
+- The AI context attaches the answer key only for the viewer's own finished
+  attempt. A bare `?q=<question id>` deep link gets the question and its
+  options without the key.
 - `questions.js` is the only place a question's answer key, TKP weights or
   explanation lives. The exam route never sends them; only the results route
   does, for the viewer's own attempt.

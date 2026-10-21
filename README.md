@@ -20,6 +20,14 @@ step-by-step explanation of every question. The dashboard keeps your profile
 (name, target exam and an optional goal, which you can edit yourself) and
 your latest results, newest first.
 
+**Tanya AI** helps you understand a question. A floating button on the
+dashboard opens a chat, and every question in Review mode has a "Tanya AI"
+button that attaches the question, your answer and the correct answer.
+Quick chips explain the answer, give a shortcut, generate three practice
+questions with hidden answers, or build a 7-day study plan from your weakest
+subtopics. Each person gets 10 questions a day, and past conversations are
+kept in "Penjelasan tersimpan".
+
 The six questions are placeholder test content, not real exam questions.
 
 Built on Homeroom: sign-in comes from the platform, data lives in the app's

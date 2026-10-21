@@ -29,5 +29,9 @@
       "path": "/ujian/cpns",
       "expectSelector": ".rail-tile"
     }
-  ]
+  ],
+  "visibility": {
+    "build": "public",
+    "view": "public"
+  }
 }

@@ -35,9 +35,12 @@
   margin-bottom: 16px;
 }
 
-.brand {font-size:20px;line-height:28px;font-weight:700;display:flex;gap:8px;align-items:center}
+.brand {display:flex;align-items:center}
 
-.brand svg {width:24px;height:24px;stroke:rgb(var(--accent));fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+/* The app's logo, replacing the old mark plus wordmark text. The artwork
+   carries its own white plate, so it reads the same in the light and the
+   dark look; the height keeps its wordmark legible in a phone header. */
+.brand-logo {display:block;height:56px;width:auto;max-width:100%}
 
 .s {font-size:14px;line-height:20px;color:rgb(var(--muted))}
 

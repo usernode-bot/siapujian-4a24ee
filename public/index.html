@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="id">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -64,7 +64,7 @@
   })();
   </script>
   <title>SiapUjian</title>
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='45' fill='%237c3aed'/><circle cx='50' cy='50' r='18' fill='white'/></svg>">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%232563be' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'><rect x='4' y='3' width='16' height='18' rx='3'/><path d='M8 8h8M8 12h8M8 16h4'/></svg>">
   <!-- Tailwind, PRECOMPILED for this app (was cdn.tailwindcss.com's
        in-browser engine plus an inline tailwind.config here). The config
        moved to tailwind.config.js in the repo root; npm run build compiles
@@ -119,46 +119,25 @@
   <!-- usernode-spec-screens@1: the screens the spec drew, carried over by the platform as this
        first version's starting point. Their styles are in public/screens.css.
        Change them where behaviour needs it; do not redraw them. -->
+  <div id="view">
   <div data-spec-screen="1">
     <div class="app">
-    <div class="top"><div class="brand"><svg viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="3"/><path d="M8 8h8M8 12h8M8 16h4"/></svg>SiapUjian</div><span class="s">Rabu, 21 Oktober</span></div>
-    <div class="card prof"><div class="av">R</div><div><div style="font-weight:600">Rina Contoh</div><div class="s">Target: UTBK PTN, Kedokteran</div></div><button class="btn-secondary">Ubah</button></div>
+    <div class="top"><div class="brand"><svg viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="3"/><path d="M8 8h8M8 12h8M8 16h4"/></svg>SiapUjian</div><span class="s" id="today"></span></div>
+    <div class="card prof" id="profile-card"><div class="av" id="profile-initial"></div><div><div style="font-weight:600" id="profile-name"></div><div class="s" id="profile-target"></div></div><button class="btn-secondary" id="edit-profile" type="button">Ubah</button></div>
     <div class="section-label">Pilih mode ujian</div>
-    <div class="card mode p"><h3>Try Out UTBK PTN<svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></h3><p>Benar dapat poin, salah dan kosong nol. Skor 0 sampai 1000.</p><div class="meta"><span>3 soal</span><span>30 menit</span><span>Passing grade 600</span></div>
-    <div class="rail"><i>1</i><i>2</i><i>3</i></div></div>
-    <div class="card mode"><h3>Try Out CAT CPNS<svg viewBox="0 0 24 24" style="stroke:rgb(var(--accent))"><path d="M9 6l6 6-6 6"/></svg></h3><p class="s">TWK, TIU dan TKP. Soal TKP berbobot nilai 1 sampai 5.</p><div class="meta s"><span>3 soal</span><span>45 menit</span><span>Passing grade 10</span></div>
-    <div class="rail"><i>1</i><i>2</i><i>3</i></div></div>
-    <div class="section-label">Hasil terakhir</div>
-    <ul class="list">
-    <li class="list-row"><span class="dot" style="background:rgb(var(--wrong))"></span><div><div style="font-weight:500">Try Out CAT CPNS</div><div class="s">Kemarin, 19.40</div></div><div class="sc">Skor 9 / 15<div class="s" style="color:rgb(var(--wrong))">Belum lulus</div></div></li>
-    <li class="list-row"><span class="dot" style="background:rgb(var(--right))"></span><div><div style="font-weight:500">Try Out UTBK PTN</div><div class="s">17 Okt, 16.15</div></div><div class="sc">Skor 667<div class="s" style="color:rgb(var(--right))">Lulus</div></div></li>
-    <li class="list-row"><span class="dot" style="background:rgb(var(--right))"></span><div><div style="font-weight:500">Try Out CAT CPNS</div><div class="s">14 Okt, 08.30</div></div><div class="sc">Skor 13 / 15<div class="s" style="color:rgb(var(--right))">Lulus</div></div></li>
-    <li class="list-row"><span class="dot" style="background:rgb(var(--wrong))"></span><div><div style="font-weight:500">Try Out UTBK PTN</div><div class="s">12 Okt, 20.05</div></div><div class="sc">Skor 333<div class="s" style="color:rgb(var(--wrong))">Belum lulus</div></div></li>
-    </ul>
+    <a class="card mode" data-mode="utbk" id="mode-utbk" href="/ujian/utbk"><h3>Try Out UTBK PTN<svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></h3><p>Benar dapat poin, salah dan kosong nol. Skor 0 sampai 1000.</p><div class="meta"><span data-meta="count"></span><span data-meta="duration"></span><span data-meta="passing"></span></div>
+    <div class="rail" data-meta="rail"></div></a>
+    <a class="card mode" data-mode="cpns" id="mode-cpns" href="/ujian/cpns"><h3>Try Out CAT CPNS<svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></h3><p class="s">TWK, TIU dan TKP. Soal TKP berbobot nilai 1 sampai 5.</p><div class="meta s"><span data-meta="count"></span><span data-meta="duration"></span><span data-meta="passing"></span></div>
+    <div class="rail" data-meta="rail"></div></a>
+    <div class="section-label">Hasil terakhir<span data-usernode-demo-note hidden>, Staging demo</span></div>
+    <ul class="list" id="results" hidden></ul>
+    <div id="results-state"></div>
     </div>
   </div>
-  <!-- Screen 2 as the spec drew it: inert until moved where that view belongs. -->
-  <template data-spec-screen="2">
-    <div data-spec-screen="2">
-      <div class="app">
-      <div class="bar"><span class="btn-secondary"><svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg></span><div><div class="ttl">Try Out UTBK PTN</div><div class="s">Soal 2 dari 3</div></div>
-      <div class="timer"><svg viewBox="0 0 24 24"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2M10 2h4"/></svg>24:37</div></div>
-      <div class="grid">
-      <div class="card"><span class="tag">Penalaran Matematika</span>
-      <p class="q">Harga 2 buku dan 1 pensil Rp13.000. Harga 1 buku dan 2 pensil Rp11.000. Berapa harga 1 buku?</p>
-      <div class="opt"><b>A</b>Rp3.000</div>
-      <div class="opt"><b>B</b>Rp4.000</div>
-      <div class="opt on"><b>C</b>Rp5.000</div>
-      <div class="opt"><b>D</b>Rp6.000</div>
-      <div class="opt"><b>E</b>Rp7.000</div>
-      </div>
-      <div class="rail"><span class="s">Soal</span><i class="f">1</i><i class="f c">2</i><i>3</i><span class="s" style="margin-top:6px;text-align:center">2 dari 3 dijawab</span></div>
-      </div>
-      <div class="foot"><span class="btn-secondary">Sebelumnya</span><span class="btn-primary">Soal berikutnya</span></div>
-      <div class="s" style="text-align:center;margin-top:12px">Ujian selesai otomatis saat waktu habis.</div>
-      </div>
-    </div>
-  </template>
+  </div>
+  <template id="result-row-tpl"><li class="list-row"><span class="dot" style="background:rgb(var(--wrong))"></span><div><div style="font-weight:500" data-row="mode"></div><div class="s" data-row="when"></div></div><div class="sc"><span data-row="score"></span><div class="s" data-row="verdict"></div></div></li></template>
+  <template id="skeleton-row-tpl"><li class="list-row"><span class="dot skeleton" style="background:transparent"></span><div style="flex:1"><div class="skeleton" style="height:14px;width:55%;margin-bottom:6px"></div><div class="skeleton" style="height:12px;width:35%"></div></div><div class="skeleton" style="height:18px;width:64px"></div></li></template>
   <!-- /usernode-spec-screens@1 -->
+  <script src="/app.js"></script>
 </body>
 </html>

@@ -95,10 +95,16 @@ tables you've marked private), etc.
 
 ## About SiapUjian
 
-Practise UTBK and CPNS exams like the real thing
+Practise UTBK and CPNS exams like the real thing.
 
-_(add a sentence or two more of product context here so Claude Code has a
-shared understanding of what this app is for)_
+A timed try-out app for Indonesian entrance exams. One dashboard shows the
+person's profile (name, target exam, optional goal) and two modes, Try Out
+UTBK PTN and Try Out CAT CPNS. Each mode opens a CAT-style quiz: question and
+options on the left, a numbered answer rail on the right, a countdown timer
+that ends the exam by itself at zero. The results screen shows the score
+against the passing grade and a step-by-step explanation for every question.
+The three UTBK and three CPNS questions live in `questions.js` and are
+placeholder content, not real exam questions.
 
 ## Your people's data
 
@@ -114,14 +120,19 @@ about, add it to `SKIP`. Keep the file and its mount in `server.js`.
 This app's look. The first real version fills in the blanks; every later
 change follows it, and updates it when a request changes the look on purpose.
 
-- **Palette:** _(name the accent, any second colour and the neutrals, e.g.
-  "accent: tomato red; second: basil green; neutrals: warm greys")_
-- **Signature element:** _(the one thing on screen drawn from this app's
-  subject, which no other app would have)_
+- **Palette:** cool neutral greys and white (ground, surface, raised, fg,
+  muted, line); accent: exam-room blue; right: green, for a marked right
+  answer; wrong: red, for a marked wrong answer and for danger. Every token
+  has a light and a dark value in `styles/tailwind-input.css`.
+- **Signature element:** the answer rail. Small rounded number tiles that
+  fill blue once the question is answered, like an exam answer sheet; it
+  appears on the quiz screen, small on each mode card, and in green and red
+  on the results screen.
 - **Type scale:** `text-title`, `text-heading`, `text-body`, `text-small`
-  _(change their sizes in `tailwind.config.js` if you must, not their number)_
-- **One fixed look:** _(only for an app drawn as its own scene, such as a
-  game: which look, and why. Otherwise delete this line.)_
+  (change their sizes in `tailwind.config.js` if you must, not their number).
+  System UI type, with tabular figures for the timer and the scores.
+- Icons are line icons: a test sheet for the app's mark, a clock for the
+  timer, chevrons. All app text is in Indonesian.
 
 The kit is in `styles/tailwind-input.css`: colour tokens with a light and
 a dark value (named in `tailwind.config.js`), and a few components
@@ -151,6 +162,12 @@ Re-theme by changing the token values there, keeping every text pair at
 
 ## App-specific conventions
 
-_(optional — e.g. "all currency values stored as integer cents, not
-floats"; "the `posts` table is append-only"; "avoid adding new
-dependencies"; etc.)_
+- Both tables, `profiles` and `attempts`, are marked `staging:private`; both
+  are keyed by `user_id`, so `usernode-user-data.js` covers them as is.
+- `questions.js` is the only place a question's answer key, TKP weights or
+  explanation lives. The exam route never sends them; only the results route
+  does, for the viewer's own attempt.
+- An unfinished exam is never saved. Leaving the exam screen or closing the
+  app discards it.
+- Scores are computed on the server by `questions.js`'s `score()`, never by
+  the page; the page only shows what an attempt stored.

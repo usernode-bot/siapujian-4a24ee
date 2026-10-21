@@ -28,64 +28,306 @@
 
 .app * {box-sizing:border-box}
 
+/* ── Dashboard (screen 1) ────────────────────────────────────────────────
+   A bright, generous home: a clean ground with soft colour blooms behind
+   it, one white profile card, two gradient mode cards and an achievement
+   style results card. Every colour is a design-kit token, so the whole
+   screen follows the light and the dark look. */
+
+.home {
+  position: relative;
+  width: 100%;
+  max-width: 42rem;
+  min-height: 100vh;
+  padding: 24px 20px 48px;
+  overflow: hidden; /* a bloom never adds a sideways scrollbar */
+  isolation: isolate;
+}
+
+/* Two cool blooms and one warm one: the page reads less flat with no image
+   at all. Purely decorative. */
+.home-bg {position:fixed;inset:0;z-index:-1;pointer-events:none}
+.blob {position:absolute;border-radius:50%}
+.blob-a {width:280px;height:280px;top:-90px;right:-80px;background:radial-gradient(circle,rgb(var(--accent)/.20),rgb(var(--accent)/0) 70%)}
+.blob-b {width:240px;height:240px;top:300px;left:-110px;background:radial-gradient(circle,rgb(var(--accent-to)/.16),rgb(var(--accent-to)/0) 70%)}
+.blob-c {width:260px;height:260px;bottom:40px;right:-90px;background:radial-gradient(circle,rgb(var(--warm)/.18),rgb(var(--warm)/0) 70%)}
+
 .top {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 16px;
+  gap: 12px;
+  margin-bottom: 20px;
 }
 
-.brand {display:flex;align-items:center}
+.brand {display:flex;align-items:center;min-width:0}
 
 /* The app's logo, replacing the old mark plus wordmark text. The artwork
    carries its own white plate, so it reads the same in the light and the
    dark look; the height keeps its wordmark legible in a phone header. */
 .brand-logo {display:block;height:56px;width:auto;max-width:100%}
 
+.today-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 0 12px;
+  border: 1px solid rgb(var(--line));
+  border-radius: 999px;
+  background: rgb(var(--surface) / .8);
+  color: rgb(var(--muted));
+  font-size: 14px;
+  line-height: 20px;
+  white-space: nowrap;
+  backdrop-filter: blur(6px);
+}
+.today-pill svg {width:16px;height:16px;flex:none;fill:none;stroke:rgb(var(--accent));stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+
 .s {font-size:14px;line-height:20px;color:rgb(var(--muted))}
 
 .card {background:rgb(var(--surface));border:1px solid rgb(var(--line));border-radius:12px;padding:16px}
 
-.prof {display:flex;gap:14px;align-items:center}
+/* The profile card: a round gradient avatar, the name, a warm role badge
+   and a pencil in a small circle. */
+.home .prof {
+  display:flex;
+  align-items:center;
+  gap:14px;
+  margin-bottom:32px;
+  padding:18px;
+  border-radius:20px;
+  background:rgb(var(--surface));
+  border:1px solid rgb(var(--line));
+  box-shadow:0 14px 34px -22px rgb(var(--shadow)/.55),0 2px 6px rgb(var(--shadow)/.05);
+  transition:box-shadow .3s ease,transform .3s ease;
+}
+@media (hover:hover) and (prefers-reduced-motion:no-preference) {
+  .home .prof:hover {transform:scale(1.01);box-shadow:0 20px 40px -24px rgb(var(--accent)/.45),0 2px 6px rgb(var(--shadow)/.05)}
+}
+.av {
+  width:56px;height:56px;
+  border-radius:50%;
+  flex:none;
+  display:flex;align-items:center;justify-content:center;
+  background:linear-gradient(135deg,rgb(var(--accent)),rgb(var(--accent-to)));
+  color:rgb(var(--on-accent));
+  font-size:22px;font-weight:700;
+  box-shadow:0 8px 18px -8px rgb(var(--accent)/.7),inset 0 0 0 3px rgb(255 255 255/.18);
+}
+.profile-form {
+  margin-bottom:32px;
+  border-radius:20px;
+  box-shadow:0 14px 34px -22px rgb(var(--shadow)/.55),0 2px 6px rgb(var(--shadow)/.05);
+}
+.prof-body {min-width:0;flex:1}
+.prof-name {font-size:18px;line-height:24px;font-weight:700;letter-spacing:-.01em;overflow-wrap:anywhere}
+.prof-meta {display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:6px}
 
-.av {width:52px;height:52px;border-radius:14px;background:rgb(var(--accent));color:rgb(var(--on-accent));display:flex;align-items:center;justify-content:center;font-weight:700;font-size:20px;flex:none}
+.role-badge {
+  display:inline-flex;align-items:center;gap:5px;
+  padding:3px 10px;
+  border-radius:999px;
+  border:1px solid rgb(var(--warm)/.35);
+  background:rgb(var(--warm-soft));
+  color:rgb(var(--warm-ink));
+  font-size:13px;line-height:18px;font-weight:600;
+}
+.role-badge svg {width:13px;height:13px;flex:none;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.role-ico-cpns {display:none}
+.role-badge.cpns .role-ico-utbk {display:none}
+.role-badge.cpns .role-ico-cpns {display:block}
+
+.prof-goal {font-size:13px;line-height:18px;color:rgb(var(--muted));min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+.icon-btn {
+  flex:none;
+  width:44px;height:44px;
+  margin-left:auto;
+  display:flex;align-items:center;justify-content:center;
+  border-radius:50%;
+  border:1px solid rgb(var(--line));
+  background:rgb(var(--raised));
+  color:rgb(var(--accent-ink));
+  cursor:pointer;
+  transition:background-color .25s ease,transform .25s ease,box-shadow .25s ease;
+}
+.icon-btn svg {width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+@media (hover:hover) {
+  .icon-btn:hover {background:rgb(var(--accent-soft));transform:translateY(-1px);box-shadow:0 6px 14px -8px rgb(var(--accent)/.6)}
+}
+
+.home-heading {
+  display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+  margin:0 4px 12px;
+  font-size:15px;line-height:22px;font-weight:700;
+  color:rgb(var(--fg));
+}
+.demo-note {
+  display:inline-flex;align-items:center;
+  padding:2px 8px;border-radius:999px;
+  background:rgb(var(--raised));color:rgb(var(--muted));
+  font-size:12px;line-height:16px;font-weight:600;
+}
 
 .btn-secondary {margin-left:auto;min-height:44px;padding:0 14px;border:1px solid rgb(var(--line));background:rgb(var(--surface));border-radius:8px;font-size:14px;color:rgb(var(--fg));font-family:inherit;cursor:pointer}
 
 .section-label {font-size:14px;font-weight:500;color:rgb(var(--muted));margin:24px 4px 8px}
 
-/* The mode cards are links, so a tap opens the exam screen. */
-a.mode {display:block;text-decoration:none;color:inherit;cursor:pointer}
+/* ── Mode cards: the screen's primary actions. They are links, so a tap
+   opens the exam. The two gradients carry their own white text, so the
+   pair is only ever checked against the mode tokens. ── */
+.modes {display:grid;grid-template-columns:minmax(0,1fr);gap:16px;margin-bottom:34px}
+@media (min-width:600px) {.modes{grid-template-columns:repeat(2,minmax(0,1fr))}}
 
-.mode {display:block;margin-bottom:12px;padding:18px;min-height:44px}
+.mode-card {
+  position:relative;
+  display:flex;flex-direction:column;
+  overflow:hidden;
+  min-height:44px;
+  padding:22px;
+  border-radius:20px;
+  border:1px solid rgb(var(--on-mode)/.14);
+  color:rgb(var(--on-mode));
+  text-decoration:none;
+  transition:transform .3s ease,box-shadow .3s ease;
+}
+.mode-card.utbk {
+  background:linear-gradient(135deg,rgb(var(--mode-utbk-from)),rgb(var(--mode-utbk-to)));
+  box-shadow:0 18px 38px -20px rgb(var(--mode-utbk-to)/.65),0 2px 8px rgb(var(--shadow)/.06);
+}
+.mode-card.cpns {
+  background:linear-gradient(135deg,rgb(var(--mode-cpns-from)),rgb(var(--mode-cpns-to)));
+  box-shadow:0 18px 38px -20px rgb(var(--mode-cpns-to)/.65),0 2px 8px rgb(var(--shadow)/.06);
+}
+@media (hover:hover) and (prefers-reduced-motion:no-preference) {
+  .mode-card:hover {transform:scale(1.02)}
+}
 
-.mode.p {background:rgb(var(--accent));border-color:rgb(var(--accent));color:rgb(var(--on-accent))}
+/* The abstract rings behind each card, and the themed icon in its corner. */
+.mode-pattern {position:absolute;inset:0;width:100%;height:100%;pointer-events:none;color:rgb(var(--on-mode))}
+.mode-pattern circle {fill:none;stroke:currentColor;stroke-width:1.5;stroke-opacity:.18}
+.mode-pattern circle.solid {fill:currentColor;stroke:none;opacity:.06}
 
-.mode h3 {margin:0;font-size:20px;line-height:28px;font-weight:600;display:flex;justify-content:space-between;align-items:center}
+.mode-icon {
+  position:absolute;top:18px;right:18px;
+  width:46px;height:46px;
+  display:flex;align-items:center;justify-content:center;
+  border-radius:14px;
+  background:rgb(var(--on-mode)/.16);
+  border:1px solid rgb(var(--on-mode)/.22);
+  backdrop-filter:blur(4px);
+}
+.mode-icon svg {width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 
-.mode h3 svg {width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.mode-title {
+  position:relative;
+  display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+  margin:0 60px 6px 0;
+  font-size:20px;line-height:26px;font-weight:700;letter-spacing:-.01em;
+}
+.target-chip {
+  display:none;align-items:center;
+  padding:2px 8px;border-radius:999px;
+  background:rgb(var(--on-mode)/.94);
+  color:rgb(var(--mode-utbk-from));
+  font-size:11px;line-height:16px;font-weight:700;letter-spacing:0;
+}
+.mode-card.cpns .target-chip {color:rgb(var(--mode-cpns-from))}
+.mode-card.is-target .target-chip {display:inline-flex}
+.mode-desc {position:relative;margin:0 0 18px;font-size:14px;line-height:20px;color:rgb(var(--on-mode));max-width:34ch}
 
-.mode p {margin:4px 0 14px;font-size:14px;line-height:20px}
+/* The information pills are frosted light chips with the card's own ink:
+   a translucent white chip with white text would drop under 4.5:1 on the
+   blue and green ends of the gradients. */
+.mode-badges {position:relative;display:flex;flex-wrap:wrap;gap:8px;margin-top:auto}
+.mode-badge {
+  display:inline-flex;align-items:center;gap:5px;
+  padding:5px 10px;
+  border-radius:999px;
+  background:rgb(var(--on-mode)/.92);
+  color:rgb(var(--mode-utbk-from));
+  font-size:13px;line-height:18px;font-weight:600;
+  white-space:nowrap;
+  box-shadow:0 2px 6px -3px rgb(var(--shadow)/.35);
+}
+.mode-card.cpns .mode-badge {color:rgb(var(--mode-cpns-from))}
+.mode-badge svg {width:13px;height:13px;flex:none;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 
-.mode.p .s {color:inherit}
+/* The question numbers double as the card's little progress tracker:
+   outlined at rest, they fill with the card's light chip and ink on hover. */
+.mode-card .rail {position:relative;display:flex;gap:7px;margin-top:16px}
+.mode-card .rail i {
+  width:30px;height:30px;
+  display:flex;align-items:center;justify-content:center;
+  border-radius:9px;
+  border:1px solid rgb(var(--on-mode)/.55);
+  background:transparent;
+  color:rgb(var(--on-mode));
+  font-style:normal;font-size:13px;font-weight:600;
+  transition:background-color .25s ease,transform .25s ease,border-color .25s ease,color .25s ease;
+}
+@media (hover:hover) {
+  .mode-card .rail i:hover {
+    background:rgb(var(--on-mode)/.94);
+    border-color:rgb(var(--on-mode));
+    color:rgb(var(--mode-utbk-from));
+    transform:translateY(-2px);
+  }
+  .mode-card.cpns .rail i:hover {color:rgb(var(--mode-cpns-from))}
+}
 
-.meta {display:flex;gap:16px;font-size:14px;flex-wrap:wrap}
+/* ── Last results: the achievement card ── */
+.results-card {
+  background:rgb(var(--surface));
+  border:1px solid rgb(var(--line));
+  border-radius:20px;
+  overflow:hidden;
+  box-shadow:0 14px 34px -24px rgb(var(--shadow)/.6),0 1px 3px rgb(var(--shadow)/.05);
+}
+.results-card .list {border:0;border-radius:0;background:transparent}
+.result-row {gap:12px;padding:14px 16px;transition:background-color .2s ease}
+.result-row[role="link"] {cursor:pointer}
+@media (hover:hover) {.result-row[role="link"]:hover {background:rgb(var(--raised))}}
 
-.rail {display:flex;gap:6px;margin-top:12px;flex-wrap:wrap}
+.result-icon {
+  width:38px;height:38px;flex:none;
+  display:flex;align-items:center;justify-content:center;
+  border-radius:12px;
+  background:rgb(var(--accent-soft));
+  color:rgb(var(--accent-ink));
+}
+.result-icon svg {width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.result-icon .ri-cpns {display:none}
+.result-icon.cpns .ri-utbk {display:none}
+.result-icon.cpns .ri-cpns {display:block}
+.result-main {min-width:0;flex:1}
+.result-mode {font-size:15px;line-height:20px;font-weight:600}
+.result-score {display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex:none}
+.result-points {font-size:15px;line-height:20px;font-weight:700;font-variant-numeric:tabular-nums}
 
-.rail i {width:28px;height:28px;border-radius:8px;border:1px solid rgb(var(--line));background:rgb(var(--raised));font-style:normal;font-size:14px;display:flex;align-items:center;justify-content:center;color:rgb(var(--muted))}
+.status-badge {
+  display:inline-flex;align-items:center;gap:4px;
+  padding:2px 8px;border-radius:999px;
+  font-size:12px;line-height:16px;font-weight:600;
+  white-space:nowrap;
+}
+.status-badge.ok {background:rgb(var(--pass-bg));color:rgb(var(--pass-fg))}
+.status-badge.no {background:rgb(var(--fail-bg));color:rgb(var(--fail-fg))}
+.status-badge svg {width:12px;height:12px;flex:none;fill:none;stroke:currentColor;stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round}
 
-.mode.p .rail i {background:rgb(255 255 255/.16);border-color:rgb(255 255 255/.45);color:rgb(var(--on-accent))}
+.results-card .state-empty,.results-card .state-error {padding:28px 20px}
+
+/* Nothing in the dashboard moves for a viewer who asked for less motion. */
+@media (prefers-reduced-motion:reduce) {
+  .home .prof,.icon-btn,.mode-card,.mode-card .rail i {transition:none}
+}
 
 .list {background:rgb(var(--surface));border:1px solid rgb(var(--line));border-radius:12px;overflow:hidden;margin:0;padding:0;list-style:none}
 
 .list-row {display:flex;gap:12px;align-items:center;padding:12px 16px;border-top:1px solid rgb(var(--line));min-height:44px}
 
 .list-row:first-child {border-top:0}
-
-.sc {margin-left:auto;font-weight:600;text-align:right}
-
-.dot {width:10px;height:10px;border-radius:50%;flex:none}
 
 /* Screen 2: its rules the first screen has not got. Scoped so they never
    reach the dashboard. */
@@ -150,7 +392,7 @@ a.mode {display:block;text-decoration:none;color:inherit;cursor:pointer}
    card's right-aligned button margin must not apply here. */
 .state-error .btn-secondary {margin-left:0;margin-top:12px}
 
-.rail-tile:focus-visible,.opt:focus-visible,.btn-primary:focus-visible,.btn-secondary:focus-visible,a.mode:focus-visible {outline:2px solid rgb(var(--accent));outline-offset:2px}
+.rail-tile:focus-visible,.opt:focus-visible,.btn-primary:focus-visible,.btn-secondary:focus-visible,.mode-card:focus-visible,.icon-btn:focus-visible,.result-row:focus-visible {outline:2px solid rgb(var(--accent));outline-offset:3px}
 
 /* Screen 3: the results screen, drawn in the same language as the others. */
 

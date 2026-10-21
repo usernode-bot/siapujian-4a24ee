@@ -29,34 +29,67 @@
  */
 @layer base {
   :root {
-    --ground: 246 247 249;    /* the page */
+    --ground: 248 250 252;    /* the page: a clean, bright slate */
     --surface: 255 255 255;   /* lists, cards, fields */
-    --raised: 238 241 245;    /* hovers, badges */
-    --fg: 24 28 36;           /* text */
-    --muted: 70 76 90;         /* secondary text */
-    --line: 226 230 236;      /* borders, dividers, skeletons */
-    --accent: 37 99 190;     /* the one accent */
+    --raised: 241 245 249;    /* hovers, badges */
+    --fg: 15 23 42;           /* text */
+    --muted: 71 85 105;       /* secondary text */
+    --line: 226 232 240;      /* borders, dividers, skeletons */
+    --accent: 79 70 229;      /* the one accent: indigo */
+    --accent-to: 37 99 235;   /* the accent gradient's far end: blue */
+    --accent-soft: 238 242 255; /* a tinted surface for small marks */
+    --accent-ink: 67 56 202;  /* text and icons on the tinted surface */
     --on-accent: 255 255 255; /* text on the accent */
+    --warm: 245 158 11;       /* the warm second accent: amber */
+    --warm-soft: 255 247 237;
+    --warm-ink: 180 83 9;
     --danger: 185 28 28;
     --on-danger: 255 255 255;
-    --focus: 37 99 190;      /* the keyboard focus ring: the accent */
-    --right: 21 128 61; /* a marked right answer */
-    --wrong: 185 28 28; /* a marked wrong answer, and danger */
+    --focus: 79 70 229;       /* the keyboard focus ring: the accent */
+    --right: 21 128 61;       /* a marked right answer */
+    --wrong: 185 28 28;       /* a marked wrong answer, and danger */
+    --shadow: 15 23 42;       /* soft drop shadows */
+    /* The two mode cards' gradients. Both ends keep white text at 4.5:1. */
+    --mode-utbk-from: 79 70 229;   /* indigo */
+    --mode-utbk-to: 37 99 235;     /* blue */
+    --mode-cpns-from: 15 118 110;  /* teal */
+    --mode-cpns-to: 4 120 87;      /* emerald */
+    --on-mode: 255 255 255;        /* text on a mode card */
+    --pass-bg: 220 252 231;        /* "Lulus" badge */
+    --pass-fg: 22 101 52;
+    --fail-bg: 254 226 226;        /* "Belum lulus" badge */
+    --fail-fg: 153 27 27;
   }
   .dark {
-    --ground: 15 18 24;
-    --surface: 24 28 36;
-    --raised: 34 39 49;
-    --fg: 236 239 244;
-    --muted: 160 168 182;
-    --line: 48 54 66;
-    --accent: 68 114 204;
+    --ground: 15 23 42;
+    --surface: 24 32 48;
+    --raised: 34 43 61;
+    --fg: 236 240 247;
+    --muted: 159 172 191;
+    --line: 48 58 78;
+    --accent: 79 70 229;
+    --accent-to: 37 99 235;
+    --accent-soft: 30 27 75;
+    --accent-ink: 165 180 252;
     --on-accent: 255 255 255;
+    --warm: 251 191 36;
+    --warm-soft: 48 33 10;
+    --warm-ink: 253 224 71;
     --danger: 248 113 113;
     --on-danger: 69 10 10;
-    --focus: 110 160 240;
+    --focus: 129 140 248;
     --right: 74 200 120;
     --wrong: 248 113 113;
+    --shadow: 0 0 0;
+    --mode-utbk-from: 79 70 229;
+    --mode-utbk-to: 37 99 235;
+    --mode-cpns-from: 15 118 110;
+    --mode-cpns-to: 4 120 87;
+    --on-mode: 255 255 255;
+    --pass-bg: 5 46 22;
+    --pass-fg: 74 222 128;
+    --fail-bg: 69 10 10;
+    --fail-fg: 248 113 113;
   }
   /* el.hidden = true hides an element even when a class gives it a display
      (flex, the components below). */

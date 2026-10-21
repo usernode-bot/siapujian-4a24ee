@@ -120,14 +120,27 @@ about, add it to `SKIP`. Keep the file and its mount in `server.js`.
 This app's look. The first real version fills in the blanks; every later
 change follows it, and updates it when a request changes the look on purpose.
 
-- **Palette:** cool neutral greys and white (ground, surface, raised, fg,
-  muted, line); accent: exam-room blue; right: green, for a marked right
-  answer; wrong: red, for a marked wrong answer and for danger. Every token
-  has a light and a dark value in `styles/tailwind-input.css`.
+- **Palette:** a clean slate ground with white surfaces (ground, surface,
+  raised, fg, muted, line); accent: indigo running to blue in the primary
+  gradient (`--accent` to `--accent-to`), with warm amber as the second
+  accent (`--warm`, `--warm-soft`, `--warm-ink`: the role badge and the
+  blooms behind the home screen); right: green, for a marked right answer;
+  wrong: red, for a marked wrong answer and for danger. The two mode cards
+  have their own gradient tokens (`--mode-utbk-from/-to`,
+  `--mode-cpns-from/-to`) and the "Lulus" / "Belum lulus" badges their
+  tints (`--pass-*`, `--fail-*`). Every token has a light and a dark value
+  in `styles/tailwind-input.css`.
+- **Home screen:** generous spacing; cards at 20 px radius with a thin
+  border and a soft shadow; two faint colour blooms behind the whole page;
+  the mode cards' information pills are frosted light chips carrying the
+  card's own colour, because white-on-tint text would fall under 4.5:1.
+  Cards lift on hover and the mode cards scale to 1.02 (not under
+  reduced motion).
 - **Signature element:** the answer rail. Small rounded number tiles that
-  fill blue once the question is answered, like an exam answer sheet; it
-  appears on the quiz screen, small on each mode card, and in green and red
-  on the results screen.
+  fill indigo once the question is answered, like an exam answer sheet; it
+  appears on the quiz screen, outlined on each mode card as that card's
+  progress tracker (filling light on hover), and in green and red on the
+  results screen.
 - **Type scale:** `text-title`, `text-heading`, `text-body`, `text-small`
   (change their sizes in `tailwind.config.js` if you must, not their number).
   System UI type, with tabular figures for the timer and the scores.
@@ -137,8 +150,9 @@ change follows it, and updates it when a request changes the look on purpose.
   `public/icon.png` is the square 256 px version used as the favicon and
   apple-touch icon. Both carry the white plate themselves, so they read the
   same in the light and the dark look; do not recolour or re-key them.
-- Icons are line icons: a clock for the timer, chevrons. All app text is in
-  Indonesian.
+- Icons are line icons: a clock for the timer, chevrons, a graduation cap
+  for UTBK PTN, a shield badge for CAT CPNS, a target or a briefcase on the
+  role badge. No emoji as icons. All app text is in Indonesian.
 
 The kit is in `styles/tailwind-input.css`: colour tokens with a light and
 a dark value (named in `tailwind.config.js`), and a few components

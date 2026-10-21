@@ -33,7 +33,7 @@
     --surface: 255 255 255;   /* lists, cards, fields */
     --raised: 238 241 245;    /* hovers, badges */
     --fg: 24 28 36;           /* text */
-    --muted: 84 92 106;        /* secondary text */
+    --muted: 70 76 90;         /* secondary text */
     --line: 226 230 236;      /* borders, dividers, skeletons */
     --accent: 37 99 190;     /* the one accent */
     --on-accent: 255 255 255; /* text on the accent */
@@ -50,8 +50,8 @@
     --fg: 236 239 244;
     --muted: 160 168 182;
     --line: 48 54 66;
-    --accent: 110 160 240;
-    --on-accent: 10 25 50;
+    --accent: 68 114 204;
+    --on-accent: 255 255 255;
     --danger: 248 113 113;
     --on-danger: 69 10 10;
     --focus: 110 160 240;

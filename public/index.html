@@ -78,6 +78,7 @@
        classes, swap this link for the platform-hosted engine instead:
        <script src="/usernode-tailwind/v1/tailwind.js"></script> -->
   <link rel="stylesheet" href="/tailwind.css">
+  <link rel="stylesheet" href="/screens.css">
   <!-- The platform bridge, centrally hosted and loaded by RELATIVE path (the
        handler in server.js serves it under a plain "node server.js"; the
        platform's edge answers it everywhere else). Never vendor it and never
@@ -115,21 +116,49 @@
   <!-- (Named in prose on purpose: Tailwind compiles any class-name word in
        these files, comments included, and the starter should ship only the
        components its screen uses.) -->
-  <main class="mx-auto flex max-w-md flex-col gap-8 px-4 py-10">
-
-    <!-- usernode-starter-notice@1 — starter-template messaging. When building
-         the user's real app, replace this whole screen and delete this block,
-         both sentinel comments included. -->
-    <section class="card flex flex-col items-start gap-3">
-      <div class="flex h-20 w-20 items-center justify-center rounded-2xl border border-line bg-ground text-title">📝</div>
-      <span class="rounded-full bg-raised px-3 py-1 text-small font-medium text-muted">Starter template</span>
-      <h1 class="text-title">SiapUjian</h1>
-      <p class="text-body text-muted">Welcome to your new app! Everything on this screen is placeholder content that came with it.</p>
-      <p class="text-body text-muted">To change this app, ask Homeroom bot: tap the <strong class="font-semibold text-fg">Homeroom icon</strong>, then <strong class="font-semibold text-fg">Suggest an improvement</strong>. Describe what you'd like in plain English, and it will be turned into your real app.</p>
-    </section>
-    <!-- /usernode-starter-notice@1 -->
-
-    <p class="text-center text-small text-muted">Built on Homeroom. This template screen disappears once you build your real app.</p>
-  </main>
+  <!-- usernode-spec-screens@1: the screens the spec drew, carried over by the platform as this
+       first version's starting point. Their styles are in public/screens.css.
+       Change them where behaviour needs it; do not redraw them. -->
+  <div data-spec-screen="1">
+    <div class="app">
+    <div class="top"><div class="brand"><svg viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="3"/><path d="M8 8h8M8 12h8M8 16h4"/></svg>SiapUjian</div><span class="s">Rabu, 21 Oktober</span></div>
+    <div class="card prof"><div class="av">R</div><div><div style="font-weight:600">Rina Contoh</div><div class="s">Target: UTBK PTN, Kedokteran</div></div><button class="btn-secondary">Ubah</button></div>
+    <div class="section-label">Pilih mode ujian</div>
+    <div class="card mode p"><h3>Try Out UTBK PTN<svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></h3><p>Benar dapat poin, salah dan kosong nol. Skor 0 sampai 1000.</p><div class="meta"><span>3 soal</span><span>30 menit</span><span>Passing grade 600</span></div>
+    <div class="rail"><i>1</i><i>2</i><i>3</i></div></div>
+    <div class="card mode"><h3>Try Out CAT CPNS<svg viewBox="0 0 24 24" style="stroke:rgb(var(--accent))"><path d="M9 6l6 6-6 6"/></svg></h3><p class="s">TWK, TIU dan TKP. Soal TKP berbobot nilai 1 sampai 5.</p><div class="meta s"><span>3 soal</span><span>45 menit</span><span>Passing grade 10</span></div>
+    <div class="rail"><i>1</i><i>2</i><i>3</i></div></div>
+    <div class="section-label">Hasil terakhir</div>
+    <ul class="list">
+    <li class="list-row"><span class="dot" style="background:rgb(var(--wrong))"></span><div><div style="font-weight:500">Try Out CAT CPNS</div><div class="s">Kemarin, 19.40</div></div><div class="sc">Skor 9 / 15<div class="s" style="color:rgb(var(--wrong))">Belum lulus</div></div></li>
+    <li class="list-row"><span class="dot" style="background:rgb(var(--right))"></span><div><div style="font-weight:500">Try Out UTBK PTN</div><div class="s">17 Okt, 16.15</div></div><div class="sc">Skor 667<div class="s" style="color:rgb(var(--right))">Lulus</div></div></li>
+    <li class="list-row"><span class="dot" style="background:rgb(var(--right))"></span><div><div style="font-weight:500">Try Out CAT CPNS</div><div class="s">14 Okt, 08.30</div></div><div class="sc">Skor 13 / 15<div class="s" style="color:rgb(var(--right))">Lulus</div></div></li>
+    <li class="list-row"><span class="dot" style="background:rgb(var(--wrong))"></span><div><div style="font-weight:500">Try Out UTBK PTN</div><div class="s">12 Okt, 20.05</div></div><div class="sc">Skor 333<div class="s" style="color:rgb(var(--wrong))">Belum lulus</div></div></li>
+    </ul>
+    </div>
+  </div>
+  <!-- Screen 2 as the spec drew it: inert until moved where that view belongs. -->
+  <template data-spec-screen="2">
+    <div data-spec-screen="2">
+      <div class="app">
+      <div class="bar"><span class="btn-secondary"><svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg></span><div><div class="ttl">Try Out UTBK PTN</div><div class="s">Soal 2 dari 3</div></div>
+      <div class="timer"><svg viewBox="0 0 24 24"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2M10 2h4"/></svg>24:37</div></div>
+      <div class="grid">
+      <div class="card"><span class="tag">Penalaran Matematika</span>
+      <p class="q">Harga 2 buku dan 1 pensil Rp13.000. Harga 1 buku dan 2 pensil Rp11.000. Berapa harga 1 buku?</p>
+      <div class="opt"><b>A</b>Rp3.000</div>
+      <div class="opt"><b>B</b>Rp4.000</div>
+      <div class="opt on"><b>C</b>Rp5.000</div>
+      <div class="opt"><b>D</b>Rp6.000</div>
+      <div class="opt"><b>E</b>Rp7.000</div>
+      </div>
+      <div class="rail"><span class="s">Soal</span><i class="f">1</i><i class="f c">2</i><i>3</i><span class="s" style="margin-top:6px;text-align:center">2 dari 3 dijawab</span></div>
+      </div>
+      <div class="foot"><span class="btn-secondary">Sebelumnya</span><span class="btn-primary">Soal berikutnya</span></div>
+      <div class="s" style="text-align:center;margin-top:12px">Ujian selesai otomatis saat waktu habis.</div>
+      </div>
+    </div>
+  </template>
+  <!-- /usernode-spec-screens@1 -->
 </body>
 </html>

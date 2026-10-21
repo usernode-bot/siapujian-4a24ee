@@ -1,0 +1,142 @@
+/* The screens the spec drew, carried over by the platform before the first
+   version was built (screen 1 is public/index.html's main screen; screen 2,
+   if any, its <template data-spec-screen="2">). Colours are the design kit's
+   tokens, rgb(var(--accent)), so they follow the light and the dark look. */
+
+/* Each screen is one centred column: the phone width it was drawn at grows
+   to a readable column on a wider window, never rows and buttons stretched
+   across the window. Remove this only for an app that fills the window by
+   design, such as a map. */
+[data-spec-screen] {
+  width: 100%;
+  max-width: 42rem;
+  margin-inline: auto;
+}
+
+.app {
+  background: rgb(var(--ground));
+  color: rgb(var(--fg));
+  min-height: 920px;
+  width: 390px;
+  box-sizing: border-box;
+  padding: 20px 16px 32px;
+  font-family: system-ui,-apple-system,"Segoe UI",sans-serif;
+  font-size: 16px;
+  line-height: 24px;
+}
+
+.app * {box-sizing:border-box}
+
+.top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.brand {font-size:20px;line-height:28px;font-weight:700;display:flex;gap:8px;align-items:center}
+
+.brand svg {width:24px;height:24px;stroke:rgb(var(--accent));fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+
+.s {font-size:14px;line-height:20px;color:rgb(var(--muted))}
+
+.card {background:rgb(var(--surface));border:1px solid rgb(var(--line));border-radius:12px;padding:16px}
+
+.prof {display:flex;gap:14px;align-items:center}
+
+.av {width:52px;height:52px;border-radius:14px;background:rgb(var(--accent));color:rgb(var(--on-accent));display:flex;align-items:center;justify-content:center;font-weight:700;font-size:20px;flex:none}
+
+.btn-secondary {margin-left:auto;min-height:44px;padding:0 14px;border:1px solid rgb(var(--line));background:rgb(var(--surface));border-radius:8px;font-size:14px;color:rgb(var(--fg));font-family:inherit}
+
+.section-label {font-size:14px;font-weight:500;color:rgb(var(--muted));margin:24px 4px 8px}
+
+.mode {display:block;margin-bottom:12px;padding:18px;min-height:44px}
+
+.mode.p {background:rgb(var(--accent));border-color:rgb(var(--accent));color:rgb(var(--on-accent))}
+
+.mode h3 {margin:0;font-size:20px;line-height:28px;font-weight:600;display:flex;justify-content:space-between;align-items:center}
+
+.mode h3 svg {width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+
+.mode p {margin:4px 0 14px;font-size:14px;line-height:20px}
+
+.mode.p p,.mode.p .meta {opacity:.9}
+
+.meta {display:flex;gap:16px;font-size:14px}
+
+.rail {display:flex;gap:6px;margin-top:12px}
+
+.rail i {width:28px;height:28px;border-radius:8px;border:1px solid rgb(var(--line));background:rgb(var(--raised));font-style:normal;font-size:14px;display:flex;align-items:center;justify-content:center;color:rgb(var(--muted))}
+
+.mode.p .rail i {background:rgb(255 255 255/.16);border-color:rgb(255 255 255/.45);color:rgb(var(--on-accent))}
+
+.list {background:rgb(var(--surface));border:1px solid rgb(var(--line));border-radius:12px;overflow:hidden;margin:0;padding:0;list-style:none}
+
+.list-row {display:flex;gap:12px;align-items:center;padding:12px 16px;border-top:1px solid rgb(var(--line));min-height:44px}
+
+.list-row:first-child {border-top:0}
+
+.sc {margin-left:auto;font-weight:600;text-align:right}
+
+.dot {width:10px;height:10px;border-radius:50%;flex:none}
+
+/* Screen 2: its rules the first screen has not got. */
+
+.app {
+  background: rgb(var(--ground));
+  color: rgb(var(--fg));
+  min-height: 844px;
+  width: 390px;
+  box-sizing: border-box;
+  padding: 16px 16px 24px;
+  font-family: system-ui,-apple-system,"Segoe UI",sans-serif;
+  font-size: 16px;
+  line-height: 24px;
+}
+
+.bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.btn-secondary {min-height:44px;min-width:44px;padding:0 12px;border:1px solid rgb(var(--line));background:rgb(var(--surface));border-radius:8px;font-size:14px;color:rgb(var(--fg));font-family:inherit;display:inline-flex;align-items:center;justify-content:center;gap:6px}
+
+.btn-secondary svg,.timer svg {width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+
+.ttl {font-weight:600;font-size:16px}
+
+.timer {margin-left:auto;display:flex;align-items:center;gap:6px;min-height:44px;padding:0 12px;border-radius:8px;background:rgb(var(--surface));border:1px solid rgb(var(--line));font-weight:600;font-variant-numeric:tabular-nums}
+
+.timer svg {stroke:rgb(var(--accent))}
+
+.grid {display:flex;gap:12px;align-items:flex-start}
+
+.card {flex:1;background:rgb(var(--surface));border:1px solid rgb(var(--line));border-radius:12px;padding:16px}
+
+.tag {display:inline-block;font-size:14px;line-height:20px;padding:2px 8px;border-radius:6px;background:rgb(var(--raised));color:rgb(var(--muted));margin-bottom:10px}
+
+.q {font-size:16px;line-height:26px;margin:0 0 16px}
+
+.opt {display:flex;gap:10px;align-items:flex-start;min-height:44px;padding:10px 12px;border:1px solid rgb(var(--line));border-radius:8px;margin-bottom:8px;font-size:15px;line-height:22px}
+
+.opt b {flex:none;width:24px;height:24px;border-radius:6px;border:1px solid rgb(var(--line));display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;color:rgb(var(--muted))}
+
+.opt.on {border-color:rgb(var(--accent));background:rgb(var(--accent)/.08)}
+
+.opt.on b {background:rgb(var(--accent));border-color:rgb(var(--accent));color:rgb(var(--on-accent))}
+
+.rail {width:56px;flex:none;background:rgb(var(--surface));border:1px solid rgb(var(--line));border-radius:12px;padding:8px 6px;display:flex;flex-direction:column;gap:6px;align-items:center}
+
+.rail .s {font-size:12px;line-height:16px}
+
+.rail i {width:44px;height:44px;border-radius:10px;border:1px solid rgb(var(--line));background:rgb(var(--raised));font-style:normal;font-size:15px;font-weight:600;display:flex;align-items:center;justify-content:center;color:rgb(var(--muted))}
+
+.rail i.f {background:rgb(var(--accent));border-color:rgb(var(--accent));color:rgb(var(--on-accent))}
+
+.rail i.c {box-shadow:0 0 0 2px rgb(var(--ground)),0 0 0 4px rgb(var(--accent))}
+
+.foot {display:flex;gap:8px;margin-top:16px}
+
+.btn-primary {flex:1;min-height:44px;display:flex;align-items:center;justify-content:center;border-radius:8px;background:rgb(var(--accent));color:rgb(var(--on-accent));font-weight:500}

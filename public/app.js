@@ -157,10 +157,13 @@
     Array.prototype.forEach.call(modes, function (card) {
       var mode = card.getAttribute('data-mode');
       var info = MODE_INFO[mode];
-      var meta = card.querySelectorAll('[data-meta]');
-      meta[0].textContent = info.count + ' soal';
-      meta[1].textContent = info.duration;
-      meta[2].textContent = info.passing;
+      function fill(key, text) {
+        var node = card.querySelector('[data-meta="' + key + '"]');
+        if (node) node.textContent = text;
+      }
+      fill('count', info.count + ' soal');
+      fill('duration', info.duration);
+      fill('passing', info.passing);
       var rail = card.querySelector('[data-meta="rail"]');
       rail.innerHTML = '';
       for (var i = 1; i <= info.count; i++) rail.appendChild(el('i', '', String(i)));
@@ -177,25 +180,42 @@
     var nameEl = document.getElementById('profile-name');
     var targetEl = document.getElementById('profile-target');
     var initialEl = document.getElementById('profile-initial');
+    var roleEl = document.getElementById('profile-role');
+    var roleLabel = document.getElementById('profile-role-label');
     var editBtn = document.getElementById('edit-profile');
     if (!nameEl) return;
     editBtn.addEventListener('click', openProfileForm);
 
     nameEl.innerHTML = '<span class="skeleton" style="display:block;height:16px;width:140px;margin:3px 0"></span>';
     targetEl.innerHTML = '<span class="skeleton" style="display:block;height:12px;width:180px;margin:4px 0"></span>';
+    targetEl.hidden = false;
+
+    // The role badge names the exam the person is working towards, and the
+    // mode card it belongs to wears a "Target kamu" chip.
+    function paintRole(exam, goal) {
+      var isCpns = exam === 'cpns';
+      if (roleEl) roleEl.classList.toggle('cpns', isCpns);
+      if (roleLabel) roleLabel.textContent = isCpns ? 'Pejuang CPNS' : 'Pejuang PTN';
+      if (goal) {
+        targetEl.textContent = goal;
+        targetEl.hidden = false;
+      } else {
+        targetEl.textContent = '';
+        targetEl.hidden = true;
+      }
+      Array.prototype.forEach.call(document.querySelectorAll('#view [data-mode]'), function (card) {
+        card.classList.toggle('is-target', card.getAttribute('data-mode') === exam);
+      });
+    }
 
     api('/api/me').then(function (me) {
       nameEl.textContent = me.name || 'Tamu';
       initialEl.textContent = (me.name || 'T').trim().charAt(0).toUpperCase();
-      var examName = me.target_exam === 'cpns' ? 'CAT CPNS' : 'UTBK PTN';
-      targetEl.textContent = 'Target: ' + examName + (me.target_goal ? ', ' + me.target_goal : '');
-      Array.prototype.forEach.call(document.querySelectorAll('#view [data-mode]'), function (card) {
-        card.classList.toggle('p', card.getAttribute('data-mode') === me.target_exam);
-      });
+      paintRole(me.target_exam === 'cpns' ? 'cpns' : 'utbk', me.target_goal);
     }).catch(function () {
       nameEl.textContent = 'Tamu';
       initialEl.textContent = 'T';
-      targetEl.textContent = 'Target: UTBK PTN';
+      paintRole('utbk', null);
     });
   }
 
@@ -203,7 +223,7 @@
     var card = document.getElementById('profile-card');
     if (!card) return;
     api('/api/me').then(function (me) {
-      var form = el('form', 'card');
+      var form = el('form', 'card profile-form');
       form.id = 'profile-form';
       form.setAttribute('style', 'display:flex;flex-direction:column;gap:10px');
       form.innerHTML =
@@ -334,13 +354,16 @@
         row.setAttribute('role', 'link');
         row.setAttribute('tabindex', '0');
         row.setAttribute('style', 'cursor:pointer');
-        row.querySelector('.dot').style.background = 'rgb(var(--' + (a.passed ? 'right' : 'wrong') + '))';
+        var icon = row.querySelector('.result-icon');
+        if (icon) icon.classList.toggle('cpns', a.mode === 'cpns');
         row.querySelector('[data-row="mode"]').textContent = MODE_INFO[a.mode] ? MODE_INFO[a.mode].name : a.mode;
         row.querySelector('[data-row="when"]').textContent = whenLabel(new Date(a.created_at));
         row.querySelector('[data-row="score"]').textContent = scoreLabel(a.mode, a.score, a.max_score);
         var verdict = row.querySelector('[data-row="verdict"]');
-        verdict.textContent = a.passed ? 'Lulus' : 'Belum lulus';
-        verdict.style.color = 'rgb(var(--' + (a.passed ? 'right' : 'wrong') + '))';
+        verdict.classList.add(a.passed ? 'ok' : 'no');
+        row.querySelector('[data-row="verdict-label"]').textContent = a.passed ? 'Lulus' : 'Belum lulus';
+        var verdictPath = row.querySelector('[data-row="verdict-path"]');
+        if (verdictPath) verdictPath.setAttribute('d', a.passed ? 'M20 6 9 17l-5-5' : 'M18 6 6 18M6 6l12 12');
         function open() { navigate('/hasil/' + a.id); }
         row.addEventListener('click', open);
         row.addEventListener('keydown', function (e) {

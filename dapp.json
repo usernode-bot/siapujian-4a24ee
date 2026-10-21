@@ -20,6 +20,11 @@
       "expectSelector": ".brand-logo"
     },
     {
+      "name": "Profile role badge",
+      "path": "/",
+      "expectText": "Pejuang"
+    },
+    {
       "id": "demo",
       "name": "Populated demo",
       "path": "/?demo=1",

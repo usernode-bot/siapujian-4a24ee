@@ -38,6 +38,30 @@
       "name": "Quiz screen",
       "path": "/ujian/cpns",
       "expectSelector": ".rail-tile"
+    },
+    {
+      "name": "UTBK exam navigator",
+      "path": "/ujian/utbk",
+      "expectText": "Ragu-ragu"
+    },
+    {
+      "name": "Daily practice",
+      "path": "/ujian/harian",
+      "expectSelector": ".rail-tile"
+    },
+    {
+      "name": "Dashboard daily card",
+      "path": "/",
+      "expectText": "Latihan harian"
+    },
+    {
+      "name": "Progress",
+      "path": "/progres?demo=1",
+      "expectText": "Subtes terlemah",
+      "visual": true,
+      "impact": [
+        "public/**"
+      ]
     }
   ],
   "visibility": {

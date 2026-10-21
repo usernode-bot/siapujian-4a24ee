@@ -103,8 +103,11 @@ UTBK PTN and Try Out CAT CPNS. Each mode opens a CAT-style quiz: question and
 options on the left, a numbered answer rail on the right, a countdown timer
 that ends the exam by itself at zero. The results screen shows the score
 against the passing grade and a step-by-step explanation for every question.
-The three UTBK and three CPNS questions live in `questions.js` and are
-placeholder content, not real exam questions.
+Twenty UTBK questions in four subtests (five each), a daily five-question
+practice drawn from the same bank, and three CPNS questions live in
+`questions.js` and are placeholder content, not real exam questions. The
+three old UTBK questions stay there with `retired: true` so earlier attempts
+still open and review.
 
 ## Your people's data
 
@@ -136,6 +139,12 @@ change follows it, and updates it when a request changes the look on purpose.
   card's own colour, because white-on-tint text would fall under 4.5:1.
   Cards lift on hover and the mode cards scale to 1.02 (not under
   reduced motion).
+- **Exam states:** the answer sheet's tiles are indigo when answered, plain
+  when not, and amber with a dot when marked Ragu-ragu (the warm second
+  accent, the yellow a real CAT uses); the open question has a ring. Results
+  bars use the indigo accent for every subtest, so colour never means good or
+  bad; the dashes mark the passing grade. The Progres trend is one indigo line
+  with dots, the latest score labelled, over a dashed amber 600 line.
 - **Signature element:** the answer rail. Small rounded number tiles that
   fill indigo once the question is answered, like an exam answer sheet; it
   appears on the quiz screen, outlined on each mode card as that card's
@@ -192,3 +201,15 @@ Re-theme by changing the token values there, keeping every text pair at
   app discards it.
 - Scores are computed on the server by `questions.js`'s `score()`, never by
   the page; the page only shows what an attempt stored.
+- A right UTBK answer is worth 50 points (20 questions to 1000); Latihan
+  harian scores right answers out of 5. `score(mode, answers, ids)` also
+  returns the Benar/Salah/Kosong counts and per-subtest scores.
+- `attempts.question_ids` records the questions a try out was taken on (null
+  for the old three-question ones, which score against `LEGACY_IDS`), and
+  `duration_sec` the time used. Streak and the weakest subtest are worked out
+  when read; there is no streak table.
+- Days run on Jakarta time (WIB): `wibDay()` in `questions.js`. The dashboard,
+  Progres and the daily set all read `req.now`.
+- `profiles` also carries `target_campus`, `target_major` (free text) and
+  `target_score` (1 to 1000, null means the passing grade), plus
+  `demo_version` for the staging `?demo=1` reseed.

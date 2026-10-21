@@ -131,8 +131,14 @@ change follows it, and updates it when a request changes the look on purpose.
 - **Type scale:** `text-title`, `text-heading`, `text-body`, `text-small`
   (change their sizes in `tailwind.config.js` if you must, not their number).
   System UI type, with tabular figures for the timer and the scores.
-- Icons are line icons: a test sheet for the app's mark, a clock for the
-  timer, chevrons. All app text is in Indonesian.
+- **The logo:** the app's mark is the uploaded logo, a graduation cap under
+  the arched "SiapUjian" wordmark with a gold check. `public/logo.png` is the
+  header lockup (already trimmed, on its own white rounded plate) and
+  `public/icon.png` is the square 256 px version used as the favicon and
+  apple-touch icon. Both carry the white plate themselves, so they read the
+  same in the light and the dark look; do not recolour or re-key them.
+- Icons are line icons: a clock for the timer, chevrons. All app text is in
+  Indonesian.
 
 The kit is in `styles/tailwind-input.css`: colour tokens with a light and
 a dark value (named in `tailwind.config.js`), and a few components
@@ -156,9 +162,10 @@ Re-theme by changing the token values there, keeping every text pair at
 - Seed obviously fake staging demo data so the populated screen can be seen
   ("Staging mock data" in the platform conventions).
 - No cards in cards, no uppercase eyebrows, no emoji as icons.
-- A header that shows the app's own mark shows the project's icon there
-  (the emoji in `dapp.json`'s `icon` block) or no mark at all: never an
-  empty tile, and never `brand/icon.png`, which the app does not serve.
+- The dashboard header shows the logo image (`public/logo.png`, 56 px tall,
+  `.brand-logo` in `public/screens.css`) on its own, not the old line icon
+  plus "SiapUjian" text: the image carries the name. Never an empty tile,
+  and never `brand/icon.png`, which the app does not serve.
 
 ## App-specific conventions
 

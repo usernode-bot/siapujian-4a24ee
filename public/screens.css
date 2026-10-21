@@ -482,7 +482,7 @@
 }
 .daily-top {display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap;margin-bottom:14px}
 .daily-top > div {flex:1 1 220px;min-width:0}
-.daily-title {margin:0 0 2px;font-size:17px;line-height:24px}
+.daily-title {margin:0 0 2px;font-size:17px;line-height:24px;font-weight:700}
 .daily-score {margin:0 0 10px}
 .streak {
   margin-left:auto;flex:none;

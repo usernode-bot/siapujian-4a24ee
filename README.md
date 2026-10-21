@@ -1,27 +1,27 @@
 # SiapUjian
 
-> **Starter template** — this repo was scaffolded by Homeroom Social
-> Vibecoding. Everything in it is placeholder example code until the
-> app's first real feature is built.
+SiapUjian is a practice app for Indonesian entrance exams: timed try outs in
+the official CAT layout, for **UTBK PTN** (the national university entrance
+test) and **CPNS** (the civil service selection test).
 
-The scaffold is a small working demo that proves the plumbing works:
+- **Try Out UTBK PTN** takes 30 minutes over three sample questions. A right
+  answer scores, a wrong or blank one scores nothing, and the score is scaled
+  to 0 to 1000 with a passing grade of 600.
+- **Try Out CAT CPNS** takes 45 minutes. TWK and TIU score 5 for a right
+  answer and 0 for a wrong one; each TKP option carries a weight from 1 to 5.
+  The three questions are worth 15 points, with a passing grade of 10.
 
-- **Sign-in** — the server verifies the platform-issued user token
-  (an RS256 JWT) on every request, so the app already knows who is
-  using it. No accounts to build.
-- **Database** — the app has its own private Postgres database, ready
-  to store things.
-- **Styling** — Tailwind CSS, precompiled by `npm run build` during
-  image creation with either Kubernetes/Paketo or standalone Docker, in a
-  light and a dark look that follow the viewer's Homeroom theme.
+The quiz screen copies the official CAT: the question and its options on the
+left, a numbered answer rail on the right where each answered tile fills
+blue, and a countdown timer. When the time runs out the exam ends by itself.
+Afterwards the results screen shows your score against the passing grade,
+marks each answer right or wrong (or its TKP points), and gives a
+step-by-step explanation of every question. The dashboard keeps your profile
+(name, target exam and an optional goal, which you can edit yourself) and
+your latest results, newest first.
 
-## Replacing the template
+The six questions are placeholder test content, not real exam questions.
 
-To change this app, ask Homeroom bot: open the app on Homeroom, tap the
-Homeroom icon in the header, then **Suggest an improvement**, and describe
-the app you want in plain English. The template will be replaced with your
-real app. You can also run
-Claude Code against this repo directly; start with `CLAUDE.md`, which
-carries the app-specific notes and points at the platform rules.
-
-Once the real app exists, rewrite this README to describe it.
+Built on Homeroom: sign-in comes from the platform, data lives in the app's
+private Postgres tables, and the look follows the viewer's light or dark
+Homeroom theme. See `CLAUDE.md` for the app's own notes.

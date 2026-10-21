@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="id">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -64,7 +64,7 @@
   })();
   </script>
   <title>SiapUjian</title>
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='45' fill='%237c3aed'/><circle cx='50' cy='50' r='18' fill='white'/></svg>">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%232563be' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'><rect x='4' y='3' width='16' height='18' rx='3'/><path d='M8 8h8M8 12h8M8 16h4'/></svg>">
   <!-- Tailwind, PRECOMPILED for this app (was cdn.tailwindcss.com's
        in-browser engine plus an inline tailwind.config here). The config
        moved to tailwind.config.js in the repo root; npm run build compiles
@@ -78,6 +78,7 @@
        classes, swap this link for the platform-hosted engine instead:
        <script src="/usernode-tailwind/v1/tailwind.js"></script> -->
   <link rel="stylesheet" href="/tailwind.css">
+  <link rel="stylesheet" href="/screens.css">
   <!-- The platform bridge, centrally hosted and loaded by RELATIVE path (the
        handler in server.js serves it under a plain "node server.js"; the
        platform's edge answers it everywhere else). Never vendor it and never
@@ -115,21 +116,28 @@
   <!-- (Named in prose on purpose: Tailwind compiles any class-name word in
        these files, comments included, and the starter should ship only the
        components its screen uses.) -->
-  <main class="mx-auto flex max-w-md flex-col gap-8 px-4 py-10">
-
-    <!-- usernode-starter-notice@1 — starter-template messaging. When building
-         the user's real app, replace this whole screen and delete this block,
-         both sentinel comments included. -->
-    <section class="card flex flex-col items-start gap-3">
-      <div class="flex h-20 w-20 items-center justify-center rounded-2xl border border-line bg-ground text-title">📝</div>
-      <span class="rounded-full bg-raised px-3 py-1 text-small font-medium text-muted">Starter template</span>
-      <h1 class="text-title">SiapUjian</h1>
-      <p class="text-body text-muted">Welcome to your new app! Everything on this screen is placeholder content that came with it.</p>
-      <p class="text-body text-muted">To change this app, ask Homeroom bot: tap the <strong class="font-semibold text-fg">Homeroom icon</strong>, then <strong class="font-semibold text-fg">Suggest an improvement</strong>. Describe what you'd like in plain English, and it will be turned into your real app.</p>
-    </section>
-    <!-- /usernode-starter-notice@1 -->
-
-    <p class="text-center text-small text-muted">Built on Homeroom. This template screen disappears once you build your real app.</p>
-  </main>
+  <!-- usernode-spec-screens@1: the screens the spec drew, carried over by the platform as this
+       first version's starting point. Their styles are in public/screens.css.
+       Change them where behaviour needs it; do not redraw them. -->
+  <div id="view">
+  <div data-spec-screen="1">
+    <div class="app">
+    <div class="top"><div class="brand"><svg viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="3"/><path d="M8 8h8M8 12h8M8 16h4"/></svg>SiapUjian</div><span class="s" id="today"></span></div>
+    <div class="card prof" id="profile-card"><div class="av" id="profile-initial"></div><div><div style="font-weight:600" id="profile-name"></div><div class="s" id="profile-target"></div></div><button class="btn-secondary" id="edit-profile" type="button">Ubah</button></div>
+    <div class="section-label">Pilih mode ujian</div>
+    <a class="card mode p" data-mode="utbk" id="mode-utbk" href="/ujian/utbk"><h3>Try Out UTBK PTN<svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></h3><p>Benar dapat poin, salah dan kosong nol. Skor 0 sampai 1000.</p><div class="meta"><span data-meta="count"></span><span data-meta="duration"></span><span data-meta="passing"></span></div>
+    <div class="rail" data-meta="rail"></div></a>
+    <a class="card mode" data-mode="cpns" id="mode-cpns" href="/ujian/cpns"><h3>Try Out CAT CPNS<svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></h3><p class="s">TWK, TIU dan TKP. Soal TKP berbobot nilai 1 sampai 5.</p><div class="meta s"><span data-meta="count"></span><span data-meta="duration"></span><span data-meta="passing"></span></div>
+    <div class="rail" data-meta="rail"></div></a>
+    <div class="section-label">Hasil terakhir<span data-usernode-demo-note hidden>, Staging demo</span></div>
+    <ul class="list" id="results" hidden></ul>
+    <div id="results-state"></div>
+    </div>
+  </div>
+  </div>
+  <template id="result-row-tpl"><li class="list-row"><span class="dot" style="background:rgb(var(--wrong))"></span><div><div style="font-weight:500" data-row="mode"></div><div class="s" data-row="when"></div></div><div class="sc"><span data-row="score"></span><div class="s" data-row="verdict"></div></div></li></template>
+  <template id="skeleton-row-tpl"><li class="list-row"><span class="dot skeleton" style="background:transparent"></span><div style="flex:1"><div class="skeleton" style="height:14px;width:55%;margin-bottom:6px"></div><div class="skeleton" style="height:12px;width:35%"></div></div><div class="skeleton" style="height:18px;width:64px"></div></li></template>
+  <!-- /usernode-spec-screens@1 -->
+  <script src="/app.js"></script>
 </body>
 </html>

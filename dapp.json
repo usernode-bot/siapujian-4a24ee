@@ -8,5 +8,26 @@
   "governance": {
     "preset": "you_or_the_group"
   },
-  "tests": []
+  "tests": [
+    {
+      "name": "Dashboard",
+      "path": "/",
+      "expectSelector": "[data-mode='utbk']"
+    },
+    {
+      "id": "demo",
+      "name": "Populated demo",
+      "path": "/?demo=1",
+      "expectText": "Staging demo",
+      "visual": true,
+      "impact": [
+        "public/**"
+      ]
+    },
+    {
+      "name": "Quiz screen",
+      "path": "/ujian/cpns",
+      "expectSelector": ".rail-tile"
+    }
+  ]
 }

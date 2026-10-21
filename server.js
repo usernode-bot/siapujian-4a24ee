@@ -2,6 +2,7 @@ const express = require('express');
 const path = require('path');
 const { Pool } = require('pg');
 const jwt = require('jsonwebtoken');
+const { EXAMS, questionsFor, publicQuestion, score } = require('./questions');
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -165,6 +166,250 @@ app.get('/health', (_req, res) => res.json({ status: 'ok' }));
 // fresh load.
 app.get('/favicon.ico', (_req, res) => res.status(204).end());
 
+// ── SiapUjian data ──────────────────────────────────────────────────────────
+// Two tables. Both key a person's rows by `user_id` and are marked
+// staging:private, so usernode-user-data.js covers them as is.
+async function migrate() {
+  await pool.query(`CREATE TABLE IF NOT EXISTS profiles (
+    user_id text PRIMARY KEY,
+    name text NOT NULL DEFAULT '',
+    target_exam text NOT NULL DEFAULT 'utbk',
+    target_goal text,
+    demo_seeded boolean NOT NULL DEFAULT false,
+    updated_at timestamptz NOT NULL DEFAULT now()
+  )`);
+  await pool.query(`CREATE TABLE IF NOT EXISTS attempts (
+    id serial PRIMARY KEY,
+    user_id text NOT NULL,
+    mode text NOT NULL,
+    answers jsonb NOT NULL DEFAULT '{}'::jsonb,
+    score int NOT NULL,
+    max_score int NOT NULL,
+    passed boolean NOT NULL,
+    timed_out boolean NOT NULL DEFAULT false,
+    is_demo boolean NOT NULL DEFAULT false,
+    created_at timestamptz NOT NULL DEFAULT now()
+  )`);
+  await pool.query('CREATE INDEX IF NOT EXISTS attempts_user_created ON attempts (user_id, created_at DESC)');
+  await pool.query(`COMMENT ON TABLE profiles IS 'staging:private'`);
+  await pool.query(`COMMENT ON TABLE attempts IS 'staging:private'`);
+}
+
+const wantsDemo = (req) => IS_STAGING && req.query.demo === '1';
+const userIdOf = (req) => (req.user ? String(req.user.id) : null);
+
+function defaultProfile(req) {
+  return {
+    name: req.user && req.user.username ? req.user.username : 'Tamu',
+    target_exam: 'utbk',
+    target_goal: null,
+  };
+}
+
+// Six fake finished try outs for the viewer's own preview (?demo=1 on
+// staging). Inserted once per person, dated relative to req.now, scored by
+// the same score() as a real attempt. Deleted rows stay deleted.
+const DEMO_ATTEMPTS = [
+  { mode: 'cpns', minutesAgo: 1180, answers: { 'cpns-1': 'B', 'cpns-2': 'A', 'cpns-3': 'D' } },
+  { mode: 'utbk', minutesAgo: 4 * 1440 + 16 * 60 + 15, answers: { 'utbk-1': 'C', 'utbk-2': 'B', 'utbk-3': 'A' } },
+  { mode: 'cpns', minutesAgo: 7 * 1440 + 8 * 60 + 30, answers: { 'cpns-1': 'B', 'cpns-2': 'C', 'cpns-3': 'C' } },
+  { mode: 'utbk', minutesAgo: 9 * 1440 + 20 * 60 + 5, answers: { 'utbk-1': 'A', 'utbk-2': 'B', 'utbk-3': 'D' } },
+  { mode: 'utbk', minutesAgo: 13 * 1440 + 9 * 60, answers: { 'utbk-1': 'C', 'utbk-2': 'B', 'utbk-3': 'C' } },
+  { mode: 'cpns', minutesAgo: 18 * 1440 + 15 * 60, answers: { 'cpns-1': 'B', 'cpns-2': 'C', 'cpns-3': 'A' } },
+];
+
+async function seedDemo(req, userId) {
+  const db = await pool.connect();
+  try {
+    await db.query('BEGIN');
+    // One seed at a time per person, even on two tabs at once.
+    await db.query('SELECT pg_advisory_xact_lock(hashtext($1))', ['demo:' + userId]);
+    const found = await db.query('SELECT demo_seeded FROM profiles WHERE user_id = $1 FOR UPDATE', [userId]);
+    if (found.rows.length && found.rows[0].demo_seeded) {
+      await db.query('COMMIT');
+      return;
+    }
+    if (!found.rows.length) {
+      const name = req.user && req.user.username ? req.user.username : 'Tamu';
+      await db.query(
+        `INSERT INTO profiles (user_id, name, target_exam, demo_seeded, updated_at)
+         VALUES ($1, $2, 'utbk', true, $3) ON CONFLICT (user_id) DO UPDATE SET demo_seeded = true`,
+        [userId, name, req.now]
+      );
+    } else {
+      await db.query('UPDATE profiles SET demo_seeded = true, updated_at = $2 WHERE user_id = $1', [userId, req.now]);
+    }
+    for (const d of DEMO_ATTEMPTS) {
+      const s = score(d.mode, d.answers);
+      const created = new Date(req.now.getTime() - d.minutesAgo * 60000);
+      await db.query(
+        `INSERT INTO attempts (user_id, mode, answers, score, max_score, passed, timed_out, is_demo, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, false, true, $7)`,
+        [userId, d.mode, JSON.stringify(d.answers), s.score, s.maxScore, s.passed, created]
+      );
+    }
+    await db.query('COMMIT');
+  } catch (err) {
+    await db.query('ROLLBACK').catch(() => {});
+    throw err;
+  } finally {
+    db.release();
+  }
+}
+
+app.get('/api/me', async (req, res) => {
+  const userId = userIdOf(req);
+  const fallback = defaultProfile(req);
+  if (!userId) return res.json(fallback);
+  try {
+    const { rows } = await pool.query(
+      'SELECT name, target_exam, target_goal FROM profiles WHERE user_id = $1', [userId]);
+    if (!rows.length) return res.json(fallback);
+    const r = rows[0];
+    res.json({
+      name: r.name || fallback.name,
+      target_exam: r.target_exam === 'cpns' ? 'cpns' : 'utbk',
+      target_goal: r.target_goal || null,
+    });
+  } catch (err) {
+    console.error('GET /api/me failed: ' + err.message);
+    res.status(500).json({ error: 'server_error' });
+  }
+});
+
+app.put('/api/me', async (req, res) => {
+  const userId = userIdOf(req);
+  if (!userId) return res.status(401).json({ error: 'account_required' });
+  const body = req.body || {};
+  const name = typeof body.name === 'string' ? body.name.trim() : '';
+  const targetExam = body.target_exam === 'cpns' ? 'cpns' : body.target_exam === 'utbk' ? 'utbk' : null;
+  const goalRaw = typeof body.target_goal === 'string' ? body.target_goal.trim() : '';
+  if (!name || name.length > 60) return res.status(400).json({ error: 'invalid_name' });
+  if (!targetExam) return res.status(400).json({ error: 'invalid_target' });
+  if (goalRaw.length > 80) return res.status(400).json({ error: 'invalid_goal' });
+  const goal = goalRaw || null;
+  try {
+    await pool.query(
+      `INSERT INTO profiles (user_id, name, target_exam, target_goal, updated_at)
+       VALUES ($1, $2, $3, $4, $5)
+       ON CONFLICT (user_id) DO UPDATE
+         SET name = EXCLUDED.name, target_exam = EXCLUDED.target_exam,
+             target_goal = EXCLUDED.target_goal, updated_at = EXCLUDED.updated_at`,
+      [userId, name, targetExam, goal, req.now]
+    );
+    res.json({ name, target_exam: targetExam, target_goal: goal });
+  } catch (err) {
+    console.error('PUT /api/me failed: ' + err.message);
+    res.status(500).json({ error: 'server_error' });
+  }
+});
+
+app.get('/api/exams/:mode', (req, res) => {
+  const exam = EXAMS[req.params.mode];
+  if (!exam) return res.status(404).json({ error: 'not_found' });
+  res.json({
+    mode: exam.mode,
+    name: exam.name,
+    durationMin: exam.durationMin,
+    passingGrade: exam.passingGrade,
+    maxScore: exam.maxScore,
+    questions: questionsFor(exam.mode).map(publicQuestion),
+  });
+});
+
+app.post('/api/attempts', async (req, res) => {
+  const userId = userIdOf(req);
+  if (!userId) return res.status(401).json({ error: 'account_required' });
+  const body = req.body || {};
+  const mode = body.mode;
+  if (!EXAMS[mode]) return res.status(400).json({ error: 'invalid_mode' });
+  const answers = body.answers && typeof body.answers === 'object' && !Array.isArray(body.answers)
+    ? body.answers : {};
+  const timedOut = body.timedOut === true;
+  const s = score(mode, answers);
+  try {
+    const { rows } = await pool.query(
+      `INSERT INTO attempts (user_id, mode, answers, score, max_score, passed, timed_out, is_demo, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id`,
+      [userId, mode, JSON.stringify(answers), s.score, s.maxScore, s.passed, timedOut, wantsDemo(req), req.now]
+    );
+    res.status(201).json({ id: rows[0].id });
+  } catch (err) {
+    console.error('POST /api/attempts failed: ' + err.message);
+    res.status(500).json({ error: 'server_error' });
+  }
+});
+
+app.get('/api/attempts', async (req, res) => {
+  const userId = userIdOf(req);
+  const demo = wantsDemo(req);
+  if (!userId) return res.json({ attempts: [] });
+  try {
+    if (demo) await seedDemo(req, userId);
+    const { rows } = await pool.query(
+      `SELECT id, mode, score, max_score, passed, timed_out, created_at
+         FROM attempts
+        WHERE user_id = $1 AND ($2::boolean OR is_demo = false)
+        ORDER BY created_at DESC, id DESC`,
+      [userId, demo]
+    );
+    res.json({ attempts: rows });
+  } catch (err) {
+    console.error('GET /api/attempts failed: ' + err.message);
+    res.status(500).json({ error: 'server_error' });
+  }
+});
+
+app.get('/api/attempts/:id', async (req, res) => {
+  const userId = userIdOf(req);
+  const id = Number(req.params.id);
+  if (!userId || !Number.isSafeInteger(id) || id <= 0) return res.status(404).json({ error: 'not_found' });
+  try {
+    const { rows } = await pool.query(
+      `SELECT id, mode, answers, score, max_score, passed, timed_out, created_at
+         FROM attempts WHERE id = $1 AND user_id = $2`, [id, userId]);
+    if (!rows.length) return res.status(404).json({ error: 'not_found' });
+    const attempt = rows[0];
+    const exam = EXAMS[attempt.mode];
+    const answers = attempt.answers || {};
+    const questions = questionsFor(attempt.mode).map((q) => ({
+      ...publicQuestion(q),
+      answer: q.answer || null,
+      weights: q.weights || null,
+      explanation: q.explanation,
+      given: typeof answers[q.id] === 'string' ? answers[q.id] : null,
+    }));
+    res.json({
+      attempt,
+      exam: {
+        mode: exam.mode,
+        name: exam.name,
+        maxScore: exam.maxScore,
+        passingGrade: exam.passingGrade,
+        durationMin: exam.durationMin,
+      },
+      questions,
+    });
+  } catch (err) {
+    console.error('GET /api/attempts/:id failed: ' + err.message);
+    res.status(500).json({ error: 'server_error' });
+  }
+});
+
+app.delete('/api/attempts/:id', async (req, res) => {
+  const userId = userIdOf(req);
+  const id = Number(req.params.id);
+  if (!userId || !Number.isSafeInteger(id) || id <= 0) return res.status(404).json({ error: 'not_found' });
+  try {
+    const r = await pool.query('DELETE FROM attempts WHERE id = $1 AND user_id = $2', [id, userId]);
+    if (!r.rowCount) return res.status(404).json({ error: 'not_found' });
+    res.status(204).end();
+  } catch (err) {
+    console.error('DELETE /api/attempts/:id failed: ' + err.message);
+    res.status(500).json({ error: 'server_error' });
+  }
+});
+
 app.use(express.static(path.join(__dirname, 'public')));
 
 // HTML shell: serve the app if authenticated. Unauthenticated top-level
@@ -203,10 +448,31 @@ app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
+let httpServer = null;
+let shuttingDown = false;
+
+// Stop accepting connections, drain for about three seconds, close the pool.
+function shutdown(signal) {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  console.log(`${signal} received, shutting down`);
+  const finish = () => pool.end().catch(() => {}).finally(() => process.exit(0));
+  if (!httpServer) return finish();
+  httpServer.close(finish);
+  setTimeout(() => {
+    if (httpServer.closeAllConnections) httpServer.closeAllConnections();
+    finish();
+  }, 3000).unref();
+}
+
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));
+
 async function start() {
-  const server = app.listen(port, () => console.log(`Listening on :${port}`));
+  await migrate();
+  httpServer = app.listen(port, () => console.log(`Listening on :${port}`));
   // Let Envoy retire idle upstream connections at 60s, with a 15s margin.
-  server.keepAliveTimeout = 75_000;
+  httpServer.keepAliveTimeout = 75_000;
 }
 
 start().catch(err => { console.error(err); process.exit(1); });

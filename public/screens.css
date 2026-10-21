@@ -1,0 +1,218 @@
+/* The screens the spec drew, carried over by the platform before the first
+   version was built (screen 1 is public/index.html's main screen; screen 2,
+   if any, its <template data-spec-screen="2">). Colours are the design kit's
+   tokens, rgb(var(--accent)), so they follow the light and the dark look. */
+
+/* Each screen is one centred column: the phone width it was drawn at grows
+   to a readable column on a wider window, never rows and buttons stretched
+   across the window. Remove this only for an app that fills the window by
+   design, such as a map. */
+[data-spec-screen] {
+  width: 100%;
+  max-width: 42rem;
+  margin-inline: auto;
+}
+
+.app {
+  background: rgb(var(--ground));
+  color: rgb(var(--fg));
+  min-height: 920px;
+  width: 390px;
+  max-width: 100%;
+  box-sizing: border-box;
+  padding: 20px 16px 32px;
+  font-family: system-ui,-apple-system,"Segoe UI",sans-serif;
+  font-size: 16px;
+  line-height: 24px;
+}
+
+.app * {box-sizing:border-box}
+
+.top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.brand {font-size:20px;line-height:28px;font-weight:700;display:flex;gap:8px;align-items:center}
+
+.brand svg {width:24px;height:24px;stroke:rgb(var(--accent));fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+
+.s {font-size:14px;line-height:20px;color:rgb(var(--muted))}
+
+.card {background:rgb(var(--surface));border:1px solid rgb(var(--line));border-radius:12px;padding:16px}
+
+.prof {display:flex;gap:14px;align-items:center}
+
+.av {width:52px;height:52px;border-radius:14px;background:rgb(var(--accent));color:rgb(var(--on-accent));display:flex;align-items:center;justify-content:center;font-weight:700;font-size:20px;flex:none}
+
+.btn-secondary {margin-left:auto;min-height:44px;padding:0 14px;border:1px solid rgb(var(--line));background:rgb(var(--surface));border-radius:8px;font-size:14px;color:rgb(var(--fg));font-family:inherit;cursor:pointer}
+
+.section-label {font-size:14px;font-weight:500;color:rgb(var(--muted));margin:24px 4px 8px}
+
+/* The mode cards are links, so a tap opens the exam screen. */
+a.mode {display:block;text-decoration:none;color:inherit;cursor:pointer}
+
+.mode {display:block;margin-bottom:12px;padding:18px;min-height:44px}
+
+.mode.p {background:rgb(var(--accent));border-color:rgb(var(--accent));color:rgb(var(--on-accent))}
+
+.mode h3 {margin:0;font-size:20px;line-height:28px;font-weight:600;display:flex;justify-content:space-between;align-items:center}
+
+.mode h3 svg {width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+
+.mode p {margin:4px 0 14px;font-size:14px;line-height:20px}
+
+.mode.p .s {color:inherit}
+
+.meta {display:flex;gap:16px;font-size:14px;flex-wrap:wrap}
+
+.rail {display:flex;gap:6px;margin-top:12px;flex-wrap:wrap}
+
+.rail i {width:28px;height:28px;border-radius:8px;border:1px solid rgb(var(--line));background:rgb(var(--raised));font-style:normal;font-size:14px;display:flex;align-items:center;justify-content:center;color:rgb(var(--muted))}
+
+.mode.p .rail i {background:rgb(255 255 255/.16);border-color:rgb(255 255 255/.45);color:rgb(var(--on-accent))}
+
+.list {background:rgb(var(--surface));border:1px solid rgb(var(--line));border-radius:12px;overflow:hidden;margin:0;padding:0;list-style:none}
+
+.list-row {display:flex;gap:12px;align-items:center;padding:12px 16px;border-top:1px solid rgb(var(--line));min-height:44px}
+
+.list-row:first-child {border-top:0}
+
+.sc {margin-left:auto;font-weight:600;text-align:right}
+
+.dot {width:10px;height:10px;border-radius:50%;flex:none}
+
+/* Screen 2: its rules the first screen has not got. Scoped so they never
+   reach the dashboard. */
+
+[data-spec-screen="2"] .app {
+  min-height: 844px;
+  padding: 16px 16px 24px;
+}
+
+[data-spec-screen="2"] .bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+[data-spec-screen="2"] .btn-secondary {margin-left:0;min-height:44px;min-width:44px;padding:0 12px;border:1px solid rgb(var(--line));background:rgb(var(--surface));border-radius:8px;font-size:14px;color:rgb(var(--fg));font-family:inherit;display:inline-flex;align-items:center;justify-content:center;gap:6px;cursor:pointer}
+
+[data-spec-screen="2"] .btn-secondary svg,[data-spec-screen="2"] .timer svg {width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+
+[data-spec-screen="2"] .ttl {font-weight:600;font-size:16px}
+
+[data-spec-screen="2"] .timer {margin-left:auto;display:flex;align-items:center;gap:6px;min-height:44px;padding:0 12px;border-radius:8px;background:rgb(var(--surface));border:1px solid rgb(var(--line));font-weight:600;font-variant-numeric:tabular-nums}
+
+[data-spec-screen="2"] .timer svg {stroke:rgb(var(--accent))}
+
+[data-spec-screen="2"] .grid {display:flex;gap:12px;align-items:flex-start}
+
+[data-spec-screen="2"] .card {flex:1;min-width:0;background:rgb(var(--surface));border:1px solid rgb(var(--line));border-radius:12px;padding:16px}
+
+.tag {display:inline-block;font-size:14px;line-height:20px;padding:2px 8px;border-radius:6px;background:rgb(var(--raised));color:rgb(var(--muted));margin-bottom:10px}
+
+.q {font-size:16px;line-height:26px;margin:0 0 16px}
+
+.opt {display:flex;gap:10px;align-items:flex-start;width:100%;min-height:44px;padding:10px 12px;border:1px solid rgb(var(--line));border-radius:8px;margin-bottom:8px;font-size:15px;line-height:22px;background:rgb(var(--surface));color:inherit;font-family:inherit;text-align:left;cursor:pointer}
+
+.opt b {flex:none;width:24px;height:24px;border-radius:6px;border:1px solid rgb(var(--line));display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;color:rgb(var(--muted))}
+
+.opt.on {border-color:rgb(var(--accent));background:rgb(var(--accent)/.08)}
+
+.opt.on b {background:rgb(var(--accent));border-color:rgb(var(--accent));color:rgb(var(--on-accent))}
+
+[data-spec-screen="2"] .rail {width:56px;flex:none;background:rgb(var(--surface));border:1px solid rgb(var(--line));border-radius:12px;padding:8px 6px;display:flex;flex-direction:column;gap:6px;align-items:center;margin-top:0}
+
+[data-spec-screen="2"] .rail .s {font-size:12px;line-height:16px}
+
+[data-spec-screen="2"] .rail i,[data-spec-screen="2"] .rail-tile {width:44px;height:44px;border-radius:10px;border:1px solid rgb(var(--line));background:rgb(var(--raised));font-style:normal;font-size:15px;font-weight:600;display:flex;align-items:center;justify-content:center;color:rgb(var(--muted));cursor:pointer;padding:0;font-family:inherit}
+
+[data-spec-screen="2"] .rail i.f,[data-spec-screen="2"] .rail-tile.f {background:rgb(var(--accent));border-color:rgb(var(--accent));color:rgb(var(--on-accent))}
+
+[data-spec-screen="2"] .rail i.c,[data-spec-screen="2"] .rail-tile.c {box-shadow:0 0 0 2px rgb(var(--ground)),0 0 0 4px rgb(var(--accent))}
+
+[data-spec-screen="2"] .foot {display:flex;gap:8px;margin-top:16px}
+
+[data-spec-screen="2"] .btn-primary {flex:1;min-height:44px;display:flex;align-items:center;justify-content:center;border-radius:8px;background:rgb(var(--accent));color:rgb(var(--on-accent));font-weight:500;border:0;font-family:inherit;font-size:16px;cursor:pointer}
+
+[data-spec-screen="2"] .btn-primary:disabled {opacity:.6;cursor:not-allowed}
+
+[data-spec-screen="2"] .btn-secondary:disabled {opacity:.5;cursor:not-allowed}
+
+/* The error state's Retry sits under its message, centred: the profile
+   card's right-aligned button margin must not apply here. */
+.state-error .btn-secondary {margin-left:0;margin-top:12px}
+
+.rail-tile:focus-visible,.opt:focus-visible,.btn-primary:focus-visible,.btn-secondary:focus-visible,a.mode:focus-visible {outline:2px solid rgb(var(--accent));outline-offset:2px}
+
+/* Screen 3: the results screen, drawn in the same language as the others. */
+
+[data-spec-screen="3"] .app {min-height: 844px;padding: 16px 16px 24px}
+
+[data-spec-screen="3"] .bar {display:flex;align-items:center;gap:8px;margin-bottom:14px}
+
+[data-spec-screen="3"] .btn-secondary {min-height:44px;min-width:44px;padding:0 12px;border:1px solid rgb(var(--line));background:rgb(var(--surface));border-radius:8px;font-size:14px;color:rgb(var(--fg));font-family:inherit;display:inline-flex;align-items:center;justify-content:center;gap:6px;margin-left:0;cursor:pointer}
+
+[data-spec-screen="3"] .btn-secondary svg {width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+
+[data-spec-screen="3"] .ttl {font-weight:600;font-size:16px}
+
+.score-head {padding:4px 4px 16px}
+
+.score-num {font-size:32px;line-height:40px;font-weight:700;font-variant-numeric:tabular-nums}
+
+.score-label {font-size:16px;line-height:24px;font-weight:500;color:rgb(var(--muted))}
+
+.pass-line {font-weight:500;margin-top:4px}
+
+.pass-line.ok {color:rgb(var(--right))}
+
+.pass-line.no {color:rgb(var(--wrong))}
+
+.entry {margin-bottom:12px}
+
+.entry-head {display:flex;gap:10px;align-items:center;margin-bottom:10px;flex-wrap:wrap}
+
+.entry-head .tag {margin-bottom:0}
+
+.q-tile {width:32px;height:32px;border-radius:10px;flex:none;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:15px;background:rgb(var(--raised));color:rgb(var(--muted))}
+
+.q-tile.ok {background:rgb(var(--right));color:rgb(var(--ground))}
+
+.q-tile.no {background:rgb(var(--wrong));color:rgb(var(--ground))}
+
+.q-tile.acc {background:rgb(var(--accent));color:rgb(var(--on-accent))}
+
+.verdict {margin-left:auto;font-size:14px;font-weight:600}
+
+.verdict.ok {color:rgb(var(--right))}
+
+.verdict.no {color:rgb(var(--wrong))}
+
+.verdict.blank {color:rgb(var(--muted))}
+
+.answer-line {font-size:14px;line-height:22px;margin-bottom:4px}
+
+.answer-line .k {color:rgb(var(--muted))}
+
+.answer-line .v {font-weight:600}
+
+.tkp-weights {list-style:none;margin:8px 0 0;padding:0;display:flex;flex-direction:column;gap:2px;font-size:14px;line-height:20px;color:rgb(var(--muted))}
+
+.tkp-weights li {display:flex;justify-content:space-between;gap:8px}
+
+.tkp-weights b {font-weight:600;white-space:nowrap}
+
+.explain {margin-top:12px;border-top:1px solid rgb(var(--line));padding-top:10px}
+
+.explain-title {font-size:14px;font-weight:500;color:rgb(var(--muted));margin-bottom:4px}
+
+.explain ol {margin:0;padding-left:20px;font-size:14px;line-height:22px;list-style:decimal}
+
+.actions {display:flex;gap:8px;align-items:center;margin-top:16px;flex-wrap:wrap}
+
+[data-spec-screen="3"] .actions .btn-primary {flex:none;min-height:44px;display:inline-flex;align-items:center;justify-content:center;padding:0 16px;border-radius:8px;background:rgb(var(--accent));color:rgb(var(--on-accent));font-weight:500;font-size:14px;text-decoration:none}

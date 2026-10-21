@@ -55,6 +55,8 @@ module.exports = {
         danger: token('danger'),
         'on-danger': token('on-danger'),
         focus: token('focus'), // the keyboard focus ring
+        right: token('right'), // a marked right answer
+        wrong: token('wrong'), // a marked wrong answer
       },
       // The type scale: four sizes, and nothing in between.
       fontSize: {

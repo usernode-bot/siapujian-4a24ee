@@ -194,15 +194,18 @@
     var dailyScore = document.getElementById('daily-score');
     var gapEl = document.getElementById('profile-gap');
     if (!streakEl || !dailyBtn) return;
+    function showRetry(show) {
+      var chip = document.getElementById('streak-chip');
+      var errLine = document.getElementById('daily-error');
+      if (chip) chip.hidden = show;
+      if (errLine) errLine.hidden = !show;
+    }
     function fail() {
       if (!document.getElementById('streak-label')) return;
-      streakEl.textContent = 'Runtutan tidak bisa dimuat.';
-      var card = document.getElementById('daily-card');
-      var retry = document.getElementById('daily-retry');
-      if (retry) retry.hidden = false;
+      showRetry(true);
     }
-    var retryBtn = document.getElementById('daily-retry');
-    if (retryBtn) retryBtn.hidden = true;
+    showRetry(false);
+    streakEl.textContent = 'Memuat...';
 
     Promise.all([api('/api/me'), api('/api/summary' + demoQuery)]).then(function (r) {
       if (!document.getElementById('streak-label')) return;
@@ -672,11 +675,14 @@
     // three-question CPNS try out still groups sensibly).
     e.groups.innerHTML = '';
     var group = null;
+    // Latihan harian draws one row of five tiles, with no subtest headings:
+    // five one-tile groups would push the sheet far down the screen.
+    var singleGroup = EXAM.mode === 'daily';
     EXAM.questions.forEach(function (qq, i) {
-      if (!group || group.name !== qq.topic) {
+      if (!group || (!singleGroup && group.name !== qq.topic)) {
         group = { name: qq.topic, ids: [], box: null };
         var g = el('div', 'grp');
-        g.appendChild(el('div', 'grp-name', qq.topic));
+        if (!singleGroup) g.appendChild(el('div', 'grp-name', qq.topic));
         var tiles = el('div', 'tiles');
         g.appendChild(tiles);
         group.el = tiles;

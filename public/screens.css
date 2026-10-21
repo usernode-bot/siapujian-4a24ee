@@ -121,7 +121,7 @@
   box-shadow:0 14px 34px -22px rgb(var(--shadow)/.55),0 2px 6px rgb(var(--shadow)/.05);
 }
 .prof-body {min-width:0;flex:1}
-.prof-name {font-size:18px;line-height:24px;font-weight:700;letter-spacing:-.01em;overflow-wrap:anywhere}
+.prof-name {font-size:18px;line-height:24px;font-weight:700;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .prof-meta {display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:6px}
 
 .role-badge {
@@ -480,7 +480,8 @@
   border:1px solid rgb(var(--line));
   box-shadow:0 14px 34px -22px rgb(var(--shadow)/.55),0 2px 6px rgb(var(--shadow)/.05);
 }
-.daily-top {display:flex;gap:12px;align-items:flex-start;margin-bottom:14px}
+.daily-top {display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap;margin-bottom:14px}
+.daily-top > div {flex:1 1 220px;min-width:0}
 .daily-title {margin:0 0 2px;font-size:17px;line-height:24px}
 .daily-score {margin:0 0 10px}
 .streak {
@@ -499,7 +500,9 @@
   background:rgb(var(--accent));color:rgb(var(--on-accent));
   font-weight:600;font-size:16px;text-decoration:none;
 }
-.daily-retry {margin-left:0;min-height:44px;border:1px solid rgb(var(--line));border-radius:10px;background:rgb(var(--surface));color:rgb(var(--fg));padding:0 14px;font-size:14px;font-family:inherit;cursor:pointer}
+.daily-error {display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 12px;min-height:44px}
+.daily-retry {margin:0;padding:0;min-height:44px;border:0;background:none;color:rgb(var(--accent-ink));font-size:14px;font-weight:600;font-family:inherit;cursor:pointer;text-decoration:underline;text-underline-offset:2px}
+.streak[hidden],.daily-error[hidden] {display:none}
 .home-link {margin-left:auto;font-size:14px;line-height:20px;font-weight:600;color:rgb(var(--accent-ink));text-decoration:none;min-height:44px;display:inline-flex;align-items:center}
 .mode-card .rail.dense {flex-wrap:wrap;gap:5px}
 .mode-card .rail.dense i {width:24px;height:24px;border-radius:7px;font-size:11px}

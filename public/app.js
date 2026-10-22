@@ -20,13 +20,41 @@
     cpns: { name: 'Try Out CAT CPNS', count: 3, duration: '45 menit', passing: 'Passing grade 10' },
     daily: { name: 'Latihan harian', count: 5, duration: '10 menit', passing: '' },
   };
+  var EXAM_META = {};
+
+  var CAMPUSES = [
+    'Universitas Indonesia',
+    'Institut Teknologi Bandung',
+    'Universitas Gadjah Mada',
+    'Universitas Airlangga',
+    'Universitas Diponegoro',
+    'Universitas Brawijaya',
+    'Universitas Padjadjaran',
+    'Universitas Negeri Jakarta',
+  ];
+  var MAJORS = [
+    'Kedokteran',
+    'Teknik Informatika',
+    'Teknik Sipil',
+    'Hukum',
+    'Manajemen',
+    'Akuntansi',
+    'Psikologi',
+    'Farmasi',
+    'Ilmu Komputer',
+    'Arsitektur',
+    'Hubungan Internasional',
+    'Kedokteran Gigi',
+  ];
 
   var MONTHS = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
   var MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
   var DAYS = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
 
-  var EXAM = null; // the loaded exam for the quiz view
+  var EXAM = null;
   var examState = null;
+  var activeDialog = null;
+  var progressMode = 'utbk';
 
   function api(path, opts) {
     opts = opts || {};
@@ -99,6 +127,11 @@
     return mode === 'cpns' ? 'Skor ' + score + ' / ' + max : 'Skor ' + score;
   }
 
+  function clockText(seconds) {
+    seconds = Math.max(0, Math.round(seconds));
+    return pad(Math.floor(seconds / 60)) + ':' + pad(seconds % 60);
+  }
+
   // ── Dialog ──────────────────────────────────────────────────────────────
   function confirmDialog(message, okLabel) {
     return new Promise(function (resolve) {
@@ -123,10 +156,13 @@
       overlay.appendChild(box);
       document.body.appendChild(overlay);
       function close(answer) {
+        if (!overlay.parentNode) return;
+        activeDialog = null;
         document.removeEventListener('keydown', onKey);
         overlay.remove();
         resolve(answer);
       }
+      activeDialog = { close: close };
       function onKey(e) { if (e.key === 'Escape') close(false); }
       document.addEventListener('keydown', onKey);
       cancel.addEventListener('click', function () { close(false); });
@@ -152,7 +188,7 @@
 
   document.addEventListener('click', function (e) {
     var a = e.target.closest && e.target.closest('a[href^="/"]');
-    if (!a || a.target || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    if (!a || a.target || a.metaKey || a.ctrlKey || e.shiftKey || e.altKey) return;
     e.preventDefault();
     navigate(a.getAttribute('href'));
   });
@@ -173,6 +209,11 @@
     if (p === '/tanya-ai') return renderAiChat();
     history.replaceState({}, '', '/' + location.search);
     return renderHome();
+  }
+
+  function bindBack(path) {
+    var back = document.getElementById('page-back');
+    if (back) back.addEventListener('click', function () { navigate(path); });
   }
 
   // ── Dashboard ───────────────────────────────────────────────────────────
@@ -286,37 +327,57 @@
 
   function loadProfile() {
     var nameEl = document.getElementById('profile-name');
-    var targetEl = document.getElementById('profile-target');
     var initialEl = document.getElementById('profile-initial');
     var roleEl = document.getElementById('profile-role');
     var roleLabel = document.getElementById('profile-role-label');
-    var editBtn = document.getElementById('edit-profile');
+    var targetEl = document.getElementById('profile-target');
+    var targetName = document.getElementById('profile-target-name');
+    var gapEl = document.getElementById('profile-gap');
     if (!nameEl) return;
-    editBtn.addEventListener('click', openProfileForm);
 
     nameEl.innerHTML = '<span class="skeleton" style="display:block;height:16px;width:140px;margin:3px 0"></span>';
-    targetEl.innerHTML = '<span class="skeleton" style="display:block;height:12px;width:180px;margin:4px 0"></span>';
-    targetEl.hidden = false;
+    targetEl.hidden = true;
 
-    // The role badge names the exam the person is working towards, and the
-    // mode card it belongs to wears a "Target kamu" chip.
-    function paintRole(exam, goal) {
+    function paintRole(exam) {
       var isCpns = exam === 'cpns';
       if (roleEl) roleEl.classList.toggle('cpns', isCpns);
       if (roleLabel) roleLabel.textContent = isCpns ? 'Pejuang CPNS' : 'Pejuang PTN';
-      if (goal) {
-        targetEl.textContent = goal;
-        targetEl.hidden = false;
-      } else {
-        targetEl.textContent = '';
-        targetEl.hidden = true;
-      }
       Array.prototype.forEach.call(document.querySelectorAll('#view [data-mode]'), function (card) {
         card.classList.toggle('is-target', card.getAttribute('data-mode') === exam);
       });
     }
 
-    api('/api/me').then(function (me) {
+    function paintTarget(me) {
+      var exam = me.target_exam === 'cpns' ? 'cpns' : 'utbk';
+      paintRole(exam);
+      if (exam !== 'utbk') {
+        targetEl.hidden = true;
+        return;
+      }
+      var campus = me.target_campus || '';
+      var major = me.target_major || '';
+      if (!campus && !major) {
+        targetEl.hidden = false;
+        targetName.textContent = 'Atur target di Profil';
+        gapEl.hidden = true;
+        return;
+      }
+      targetEl.hidden = false;
+      targetName.textContent = campus && major ? campus + ', ' + major : campus || major;
+      if (me.latest_utbk && typeof me.latest_utbk.score === 'number') {
+        var targetScore = typeof me.target_score === 'number' ? me.target_score : 600;
+        var gap = targetScore - me.latest_utbk.score;
+        gapEl.hidden = false;
+        gapEl.classList.remove('wait');
+        gapEl.textContent = gap > 0 ? 'Kurang ' + gap + ' poin' : 'Target tercapai';
+      } else {
+        gapEl.hidden = false;
+        gapEl.classList.add('wait');
+        gapEl.textContent = 'Belum ada skor UTBK';
+      }
+    }
+
+    api('/api/me' + demoQuery).then(function (me) {
       nameEl.textContent = me.name || 'Tamu';
       initialEl.textContent = (me.name || 'T').trim().charAt(0).toUpperCase();
       var goal = me.target_exam === 'cpns'
@@ -326,7 +387,8 @@
     }).catch(function () {
       nameEl.textContent = 'Tamu';
       initialEl.textContent = 'T';
-      paintRole('utbk', null);
+      paintRole('utbk');
+      targetEl.hidden = true;
     });
   }
 
@@ -440,11 +502,6 @@
     });
   }
 
-  function nameElFallback() {
-    var nameEl = document.getElementById('profile-name');
-    if (nameEl) nameEl.textContent = 'Tamu';
-  }
-
   function loadResults() {
     var list = document.getElementById('results');
     var state = document.getElementById('results-state');
@@ -545,7 +602,7 @@
 
   var FLAG_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 22V4"/><path d="M4 4h12l-2 4 2 4H4"/></svg>';
 
-  function quizShell(examName, subtitle, timerText) {
+  function quizShell(exam) {
     return '<div data-spec-screen="2"><div class="app">' +
       '<div class="bar"><button class="btn-secondary" id="quiz-back" type="button" aria-label="Keluar dari ujian">' + BACK_SVG + '</button>' +
       '<div><div class="ttl">' + examName + '</div><div class="s" id="quiz-progress">' + subtitle + '</div></div>' +
@@ -568,7 +625,7 @@
   }
 
   function renderQuiz(mode) {
-    view.innerHTML = '<div data-spec-screen="2"><div class="app"><div class="bar"><button class="btn-secondary" id="quiz-back" type="button" aria-label="Keluar dari ujian">' + BACK_SVG + '</button><div><div class="ttl">' + (MODE_INFO[mode] ? MODE_INFO[mode].name : 'Try out') + '</div><div class="s">Memuat soal...</div></div></div>' +
+    view.innerHTML = '<div data-spec-screen="2"><div class="app"><div class="bar"><button class="btn-secondary" id="quiz-back" type="button" aria-label="Keluar dari ujian">' + BACK_SVG + '</button><div><div class="ttl">' + (MODE_NAMES[mode] || 'Try out') + '</div><div class="s">Memuat soal...</div></div></div>' +
       '<div class="card"><div class="skeleton" style="height:20px;width:40%;margin-bottom:14px"></div><div class="skeleton" style="height:16px;width:90%;margin-bottom:8px"></div><div class="skeleton" style="height:16px;width:70%;margin-bottom:20px"></div>' +
       '<div class="skeleton" style="height:44px;margin-bottom:8px"></div><div class="skeleton" style="height:44px;margin-bottom:8px"></div><div class="skeleton" style="height:44px"></div></div></div></div>';
     var back = document.getElementById('quiz-back');
@@ -605,10 +662,11 @@
       endAt: now().getTime() + exam.durationMin * 60000,
       interval: null,
     };
-    view.innerHTML = quizShell(exam.name, 'Soal 1 dari ' + exam.questions.length, formatClock(exam.durationMin * 60));
+    view.innerHTML = quizShell(exam);
     examState.el = {
-      progress: document.getElementById('quiz-progress'),
+      sub: document.getElementById('quiz-sub'),
       timer: document.getElementById('quiz-timer'),
+      timerWrap: document.getElementById('quiz-timer-wrap'),
       topic: document.getElementById('q-topic'),
       passage: document.getElementById('q-passage'),
       prompt: document.getElementById('q-prompt'),
@@ -633,16 +691,29 @@
       if (examState.idx < EXAM.questions.length - 1) goTo(examState.idx + 1);
       else finishExam(false);
     });
+    examState.el.flag.addEventListener('click', function () {
+      if (!examState || examState.finished) return;
+      var id = EXAM.questions[examState.idx].id;
+      if (examState.flags[id]) delete examState.flags[id];
+      else examState.flags[id] = true;
+      paintQuestion();
+    });
     examState.interval = setInterval(tick, 1000);
     paintQuestion();
     tick();
   }
 
-  function formatClock(seconds) {
-    seconds = Math.max(0, Math.round(seconds));
-    var m = Math.floor(seconds / 60);
-    var s = seconds % 60;
-    return pad(m) + ':' + pad(s);
+  function openSheet() {
+    if (!examState) return;
+    examState.el.sheet.hidden = false;
+    examState.el.scrim.hidden = false;
+    paintTiles();
+  }
+
+  function closeSheet() {
+    if (!examState) return;
+    examState.el.sheet.hidden = true;
+    examState.el.scrim.hidden = true;
   }
 
   function tick() {
@@ -653,7 +724,8 @@
       finishExam(true);
       return;
     }
-    examState.el.timer.textContent = formatClock(left / 1000);
+    examState.el.timer.textContent = clockText(left / 1000);
+    examState.el.timerWrap.classList.toggle('low', left < 300000);
   }
 
   function goTo(i) {
@@ -662,11 +734,55 @@
     paintQuestion();
   }
 
+  function answeredCount() {
+    if (!examState || !EXAM) return 0;
+    return EXAM.questions.filter(function (q) { return !!examState.answers[q.id]; }).length;
+  }
+
+  function paintTiles() {
+    if (!examState || !EXAM) return;
+    var label = answeredCount() + ' dari ' + EXAM.questions.length + ' dijawab';
+    examState.el.railCount.textContent = label;
+    examState.el.sheetCount.textContent = label;
+    examState.el.navCount.textContent = label;
+    [examState.el.railGrid, examState.el.sheetGrid].forEach(function (grid) {
+      if (!grid) return;
+      grid.innerHTML = '';
+      EXAM.questions.forEach(function (qq, i) {
+        var cls = 'rail-tile';
+        if (examState.answers[qq.id]) cls += ' f';
+        if (examState.flags[qq.id]) cls += ' m';
+        if (i === examState.idx) cls += ' c';
+        var t = el('i', cls, String(i + 1));
+        t.setAttribute('role', 'button');
+        t.setAttribute('tabindex', '0');
+        t.setAttribute('aria-label', 'Soal ' + (i + 1) +
+          (examState.answers[qq.id] ? ', sudah dijawab' : ', belum dijawab') +
+          (examState.flags[qq.id] ? ', ditandai' : ''));
+        t.addEventListener('click', function () { goTo(i); closeSheet(); });
+        t.addEventListener('keydown', function (ev) {
+          if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); goTo(i); closeSheet(); }
+        });
+        grid.appendChild(t);
+      });
+    });
+  }
+
   function paintQuestion() {
     if (!examState || !EXAM) return;
     var q = EXAM.questions[examState.idx];
     var e = examState.el;
-    e.progress.textContent = 'Soal ' + (examState.idx + 1) + ' dari ' + EXAM.questions.length;
+    var subName = q.subtestName || q.topic;
+    e.sub.textContent = subName + ', soal ' + (examState.idx + 1) + ' dari ' + EXAM.questions.length;
+    if (q.passage) {
+      e.passage.hidden = false;
+      e.passage.innerHTML = '';
+      if (q.passage.title) e.passage.appendChild(el('div', 'passage-title', q.passage.title));
+      e.passage.appendChild(el('p', 'passage-text', q.passage.text));
+    } else {
+      e.passage.hidden = true;
+      e.passage.innerHTML = '';
+    }
     e.topic.textContent = q.topic;
     if (q.passage) {
       e.passage.textContent = q.passage;
@@ -729,12 +845,15 @@
     e.count.textContent = answeredCount + ' dari ' + EXAM.questions.length + ' dijawab';
     e.count.setAttribute('data-answered', String(answeredCount));
 
+    paintTiles();
     e.prev.disabled = examState.idx === 0;
     e.next.textContent = examState.idx === EXAM.questions.length - 1 ? 'Selesai ujian' : 'Soal berikutnya';
   }
 
   function finishExam(timedOut) {
     if (!examState || examState.finished || examState.submitting) return;
+    if (timedOut && activeDialog) activeDialog.close(false);
+    closeSheet();
     if (!timedOut) {
       var unanswered = EXAM.questions.filter(function (q) { return !examState.answers[q.id]; }).length;
       var flagged = EXAM.questions.filter(function (q) { return examState.flags[q.id]; }).length;
@@ -755,11 +874,14 @@
     if (!examState || examState.submitting) return;
     examState.timedOut = timedOut;
     examState.submitting = true;
-    if (timedOut && examState.interval) {
+    if (examState.interval) {
       clearInterval(examState.interval);
       examState.interval = null;
     }
     var e = examState.el;
+    var total = EXAM.durationMin * 60;
+    var used = timedOut ? total : Math.max(0, Math.min(total, Math.round(total - (examState.endAt - now().getTime()) / 1000)));
+    var flaggedIds = Object.keys(examState.flags).filter(function (id) { return examState.flags[id]; });
     e.next.disabled = true;
     e.next.textContent = 'Mengirim...';
     e.error.hidden = true;
@@ -776,16 +898,22 @@
     }).then(function (r) {
       examState.finished = true;
       navigate('/hasil/' + r.id);
-    }).catch(function () {
+    }).catch(function (err) {
       examState.submitting = false;
       e.next.disabled = false;
       e.next.textContent = examState.idx === EXAM.questions.length - 1 ? 'Selesai ujian' : 'Soal berikutnya';
       e.error.innerHTML = '';
-      e.error.appendChild(el('span', '', 'Jawabanmu belum terkirim. '));
-      var retry = el('button', 'btn-secondary', 'Kirim ulang');
-      retry.type = 'button';
-      retry.addEventListener('click', function () { submitExam(examState ? examState.timedOut : false); });
-      e.error.appendChild(retry);
+      if (err && err.message === 'account_required') {
+        e.error.appendChild(el('span', '', 'Kamu perlu akun untuk menyimpan hasil. '));
+      } else {
+        e.error.appendChild(el('span', '', 'Jawabanmu belum terkirim. '));
+        var retry = el('button', 'btn-secondary', 'Kirim ulang');
+        retry.type = 'button';
+        retry.addEventListener('click', function () {
+          if (examState) submitExam(examState.timedOut);
+        });
+        e.error.appendChild(retry);
+      }
       e.error.hidden = false;
     });
   }
@@ -936,39 +1064,37 @@
 
   function resultEntry(q, i, exam, attemptId) {
     var isTkp = q.type === 'tkp';
-    var given = q.given;
+    var v = verdictOf(q);
     var entry = el('div', 'card entry');
 
     entry.id = 'q-' + (i + 1);
     var head = el('div', 'entry-head');
-    var verdict = 'Kosong';
-    var tone = 'blank';
-    if (isTkp) {
-      verdict = given ? (q.weights[given] || 0) + ' dari 5 poin' : 'Kosong';
-      tone = given ? 'acc' : 'blank';
-    } else if (!given) {
-      verdict = 'Kosong';
-      tone = 'blank';
-    } else if (given === q.answer) {
-      verdict = 'Benar';
-      tone = 'ok';
-    } else {
-      verdict = 'Salah';
-      tone = 'no';
-    }
-    var tile = el('span', 'q-tile ' + tone, String(i + 1));
-    head.appendChild(tile);
+    head.appendChild(el('span', 'q-tile ' + (v.tone === 'acc' ? 'acc' : v.tone), String(index + 1)));
     head.appendChild(el('span', 'tag', q.topic));
-    var v = el('span', 'verdict ' + (tone === 'ok' ? 'ok' : tone === 'no' ? 'no' : 'blank'), verdict);
-    head.appendChild(v);
+    if (q.flagged) head.appendChild(el('span', 'flag-tag', 'Ditandai'));
+    head.appendChild(el('span', 'verdict ' + (v.tone === 'ok' ? 'ok' : v.tone === 'no' ? 'no' : 'blank'), v.label));
     entry.appendChild(head);
 
     if (q.passage) entry.appendChild(el('p', 'passage', q.passage));
     entry.appendChild(el('p', 'q', q.prompt));
 
+    var opts = el('div', 'review-opts');
+    q.options.forEach(function (o) {
+      var tone = '';
+      if (!isTkp && q.answer === o.letter) tone = ' ok';
+      else if (!isTkp && q.given === o.letter) tone = ' no';
+      else if (isTkp && q.given === o.letter) tone = ' acc';
+      var row = el('div', 'ropt' + tone);
+      row.appendChild(el('b', '', o.letter));
+      row.appendChild(el('span', '', o.text));
+      if (isTkp) row.appendChild(el('i', 'rw', (q.weights[o.letter] || 0) + ' poin'));
+      opts.appendChild(row);
+    });
+    entry.appendChild(opts);
+
     var givenLine = el('div', 'answer-line');
     givenLine.appendChild(el('span', 'k', 'Jawabanmu: '));
-    givenLine.appendChild(el('span', 'v', given ? answerText(q, given) : 'kosong'));
+    givenLine.appendChild(el('span', 'v', answerText(q, q.given)));
     entry.appendChild(givenLine);
 
     if (!isTkp) {
@@ -976,15 +1102,6 @@
       keyLine.appendChild(el('span', 'k', 'Jawaban benar: '));
       keyLine.appendChild(el('span', 'v', answerText(q, q.answer)));
       entry.appendChild(keyLine);
-    } else {
-      var weights = el('ul', 'tkp-weights');
-      q.options.forEach(function (o) {
-        var li = el('li');
-        li.appendChild(el('span', '', o.letter + '. ' + o.text));
-        li.appendChild(el('b', '', (q.weights[o.letter] || 0) + ' poin'));
-        weights.appendChild(li);
-      });
-      entry.appendChild(weights);
     }
 
     var explain = el('div', 'explain');

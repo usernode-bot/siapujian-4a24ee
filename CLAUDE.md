@@ -155,10 +155,12 @@ change follows it, and updates it when a request changes the look on purpose.
   bad; the dashes mark the passing grade. The Progres trend is one indigo line
   with dots, the latest score labelled, over a dashed amber 600 line.
 - **Signature element:** the answer rail. Small rounded number tiles that
-  fill indigo once the question is answered, like an exam answer sheet; it
-  appears on the quiz screen, outlined on each mode card as that card's
-  progress tracker (filling light on hover), and in green and red on the
-  results screen.
+  fill indigo once the question is answered and take an amber ring when
+  flagged, like an exam answer sheet; on a wide window it sits beside the
+  question as a five-column grid, on a phone it opens as a sheet from the
+  "N dari 20 dijawab" chip. It also appears outlined on each mode card as
+  that card's progress tracker (filling light on hover), and in green and
+  red on the review page.
 - **Type scale:** `text-title`, `text-heading`, `text-body`, `text-small`
   (change their sizes in `tailwind.config.js` if you must, not their number).
   System UI type, with tabular figures for the timer and the scores.
@@ -216,10 +218,13 @@ Re-theme by changing the token values there, keeping every text pair at
   attempt. A bare `?q=<question id>` deep link gets the question and its
   options without the key.
 - `questions.js` is the only place a question's answer key, TKP weights or
-  explanation lives. The exam route never sends them; only the results route
-  does, for the viewer's own attempt.
+  explanation is authored. The exam route never sends them; only the review
+  route does, for the viewer's own attempt. An attempt keeps a snapshot of
+  its questions, taken server-side at submit, so an old result stays
+  explainable after the bank changes; that snapshot is the only copy
+  outside `questions.js`, and only the review route may return it.
 - An unfinished exam is never saved. Leaving the exam screen or closing the
-  app discards it.
+  app discards it, flags included.
 - Scores are computed on the server by `questions.js`'s `score()`, never by
   the page; the page only shows what an attempt stored.
 - A right UTBK answer is worth 50 points (20 questions to 1000); Latihan

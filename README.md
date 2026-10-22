@@ -43,6 +43,7 @@ is from the target.
 The 20 UTBK questions, 3 CPNS questions and their explanations are placeholder
 practice content, not real exam questions.
 
-Built on Homeroom: sign-in comes from the platform, data lives in the app's
-private Postgres tables, and the look follows the viewer's light or dark
-Homeroom theme. See `CLAUDE.md` for the app's own notes.
+The 20 UTBK and 3 CPNS questions are original practice content, not real exam
+questions. Built on Homeroom: sign-in comes from the platform, data lives in
+the app's private Postgres tables, and the look follows the viewer's light or
+dark Homeroom theme. See `CLAUDE.md` for the app's own notes.

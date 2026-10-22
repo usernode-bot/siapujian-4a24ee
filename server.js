@@ -171,7 +171,7 @@ app.get('/favicon.ico', (_req, res) => {
 });
 
 // ── SiapUjian data ──────────────────────────────────────────────────────────
-// Two tables. Both key a person's rows by `user_id` and are marked
+// Four tables. All key a person's rows by `user_id` and are marked
 // staging:private, so usernode-user-data.js covers them as is.
 async function migrate() {
   await pool.query(`CREATE TABLE IF NOT EXISTS profiles (
@@ -319,6 +319,10 @@ app.get('/api/me', async (req, res) => {
   const fallback = defaultProfile(req);
   if (!userId) return res.json(fallback);
   try {
+    // The dashboard asks for the profile and the attempts at the same time;
+    // seeding here too means the demo's target line is there on the first
+    // load, not only after the attempts call has created it.
+    if (wantsDemo(req)) await seedDemo(req, userId);
     const { rows } = await pool.query(
       `SELECT name, target_exam, target_goal, target_campus, target_major, target_score
          FROM profiles WHERE user_id = $1`, [userId]);
@@ -456,7 +460,7 @@ app.get('/api/attempts', async (req, res) => {
   try {
     if (demo) await seedDemo(req, userId);
     const { rows } = await pool.query(
-      `SELECT id, mode, score, max_score, passed, timed_out, created_at
+      `SELECT id, mode, score, max_score, passed, timed_out, duration_sec, created_at
          FROM attempts
         WHERE user_id = $1 AND ($2::boolean OR is_demo = false)
         ORDER BY created_at DESC, id DESC`,
@@ -479,7 +483,6 @@ app.get('/api/attempts/:id', async (req, res) => {
          FROM attempts WHERE id = $1 AND user_id = $2`, [id, userId]);
     if (!rows.length) return res.status(404).json({ error: 'not_found' });
     const attempt = rows[0];
-    const exam = EXAMS[attempt.mode];
     const answers = attempt.answers || {};
     const legacy = !Array.isArray(attempt.question_ids) || !attempt.question_ids.length;
     let ids;
@@ -493,18 +496,20 @@ app.get('/api/attempts/:id', async (req, res) => {
       ...publicQuestion(q),
       answer: q.answer || null,
       weights: q.weights || null,
-      explanation: q.explanation,
+      explanation: q.explanation || [],
       given: typeof answers[q.id] === 'string' ? answers[q.id] : null,
     }));
     const breakdown = score(attempt.mode, answers, ids);
     res.json({
-      attempt,
-      exam: {
-        mode: exam.mode,
-        name: exam.name,
-        maxScore: exam.maxScore,
-        passingGrade: exam.passingGrade,
-        durationMin: exam.durationMin,
+      attempt: {
+        id: attempt.id,
+        mode: attempt.mode,
+        score: attempt.score,
+        max_score: attempt.max_score,
+        passed: attempt.passed,
+        timed_out: attempt.timed_out,
+        duration_sec: attempt.duration_sec,
+        created_at: attempt.created_at,
       },
       breakdown: {
         correct: breakdown.correct,

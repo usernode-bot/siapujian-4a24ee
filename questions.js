@@ -375,6 +375,7 @@ const LEGACY = [
 ];
 
 const CPNS = [
+  // ── CAT CPNS (unchanged demo set) ──────────────────────────────────────
   {
     id: 'cpns-1',
     mode: 'cpns',
@@ -457,6 +458,7 @@ function dailyIds(day) {
   return out;
 }
 
+// A question as the exam route may send it: no answer, weights or explanation.
 function publicQuestion(q) {
   const out = {
     id: q.id,

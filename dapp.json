@@ -38,6 +38,26 @@
       "name": "Quiz screen",
       "path": "/ujian/cpns",
       "expectSelector": ".rail-tile"
+    },
+    {
+      "name": "Exam navigator and flag",
+      "path": "/ujian/utbk",
+      "expectText": "Tandai soal"
+    },
+    {
+      "name": "Daily practice",
+      "path": "/latihan",
+      "expectText": "Latihan 5 soal"
+    },
+    {
+      "name": "Progress empty state",
+      "path": "/progres",
+      "expectText": "Belum ada try out"
+    },
+    {
+      "name": "Profile target",
+      "path": "/profil",
+      "expectText": "Kampus tujuan"
     }
   ],
   "visibility": {

@@ -2,7 +2,18 @@ const express = require('express');
 const path = require('path');
 const { Pool } = require('pg');
 const jwt = require('jsonwebtoken');
-const { EXAMS, questionsFor, publicQuestion, score } = require('./questions');
+const {
+  EXAMS,
+  SUBTESTS,
+  questionsFor,
+  legacyQuestionsFor,
+  publicQuestion,
+  questionSnapshot,
+  examMeta,
+  examMetas,
+  score,
+  practiceQuestions,
+} = require('./questions');
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -168,7 +179,7 @@ app.get('/favicon.ico', (_req, res) => {
 });
 
 // ── SiapUjian data ──────────────────────────────────────────────────────────
-// Two tables. Both key a person's rows by `user_id` and are marked
+// Three tables. All key a person's rows by `user_id` and are marked
 // staging:private, so usernode-user-data.js covers them as is.
 async function migrate() {
   await pool.query(`CREATE TABLE IF NOT EXISTS profiles (
@@ -179,6 +190,9 @@ async function migrate() {
     demo_seeded boolean NOT NULL DEFAULT false,
     updated_at timestamptz NOT NULL DEFAULT now()
   )`);
+  await pool.query(`ALTER TABLE profiles ADD COLUMN IF NOT EXISTS target_campus text NOT NULL DEFAULT ''`);
+  await pool.query(`ALTER TABLE profiles ADD COLUMN IF NOT EXISTS target_major text NOT NULL DEFAULT ''`);
+  await pool.query(`ALTER TABLE profiles ADD COLUMN IF NOT EXISTS target_score int NOT NULL DEFAULT 600`);
   await pool.query(`CREATE TABLE IF NOT EXISTS attempts (
     id serial PRIMARY KEY,
     user_id text NOT NULL,
@@ -191,32 +205,96 @@ async function migrate() {
     is_demo boolean NOT NULL DEFAULT false,
     created_at timestamptz NOT NULL DEFAULT now()
   )`);
+  await pool.query(`ALTER TABLE attempts ADD COLUMN IF NOT EXISTS flagged jsonb NOT NULL DEFAULT '[]'::jsonb`);
+  await pool.query(`ALTER TABLE attempts ADD COLUMN IF NOT EXISTS time_used_sec int NOT NULL DEFAULT 0`);
+  await pool.query(`ALTER TABLE attempts ADD COLUMN IF NOT EXISTS breakdown jsonb NOT NULL DEFAULT '{}'::jsonb`);
+  await pool.query(`ALTER TABLE attempts ADD COLUMN IF NOT EXISTS correct int NOT NULL DEFAULT 0`);
+  await pool.query(`ALTER TABLE attempts ADD COLUMN IF NOT EXISTS wrong int NOT NULL DEFAULT 0`);
+  await pool.query(`ALTER TABLE attempts ADD COLUMN IF NOT EXISTS blank int NOT NULL DEFAULT 0`);
+  await pool.query(`ALTER TABLE attempts ADD COLUMN IF NOT EXISTS questions jsonb NOT NULL DEFAULT '[]'::jsonb`);
+  await pool.query(`CREATE TABLE IF NOT EXISTS daily_practices (
+    id serial PRIMARY KEY,
+    user_id text NOT NULL,
+    day date NOT NULL,
+    answers jsonb NOT NULL DEFAULT '{}'::jsonb,
+    correct int NOT NULL DEFAULT 0,
+    total int NOT NULL DEFAULT 5,
+    is_demo boolean NOT NULL DEFAULT false,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    UNIQUE (user_id, day)
+  )`);
   await pool.query('CREATE INDEX IF NOT EXISTS attempts_user_created ON attempts (user_id, created_at DESC)');
+  await pool.query('CREATE INDEX IF NOT EXISTS daily_practices_user_day ON daily_practices (user_id, day DESC)');
   await pool.query(`COMMENT ON TABLE profiles IS 'staging:private'`);
   await pool.query(`COMMENT ON TABLE attempts IS 'staging:private'`);
+  await pool.query(`COMMENT ON TABLE daily_practices IS 'staging:private'`);
 }
 
 const wantsDemo = (req) => IS_STAGING && req.query.demo === '1';
 const userIdOf = (req) => (req.user ? String(req.user.id) : null);
 
+// The app's days (streak, daily practice) turn over at midnight in Jakarta.
+// Read "now" through req.now, never new Date() or SQL NOW(), so a staging
+// preview opened at ?un-now= sees the right day.
+const APP_TIME_ZONE = 'Asia/Jakarta';
+const DAY_FORMAT = new Intl.DateTimeFormat('en-CA', {
+  timeZone: APP_TIME_ZONE,
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+});
+function appDay(date) {
+  return DAY_FORMAT.format(date);
+}
+function dayNumber(day) {
+  const parts = String(day).split('-').map(Number);
+  return Math.floor(Date.UTC(parts[0], parts[1] - 1, parts[2]) / 86400000);
+}
+
 function defaultProfile(req) {
   return {
     name: req.user && req.user.username ? req.user.username : 'Tamu',
     target_exam: 'utbk',
-    target_goal: null,
+    target_campus: '',
+    target_major: '',
+    target_score: 600,
+    latest_utbk: null,
   };
 }
 
-// Six fake finished try outs for the viewer's own preview (?demo=1 on
-// staging). Inserted once per person, dated relative to req.now, scored by
-// the same score() as a real attempt. Deleted rows stay deleted.
+// A wrong but valid letter for a demo answer, so a seeded blank stays blank
+// and a seeded wrong answer is really wrong.
+function wrongLetter(q) {
+  const other = q.options.find((o) => o.letter !== q.answer);
+  return other ? other.letter : null;
+}
+
+// Demo answers with a chosen number of correct answers per subtest.
+function demoAnswers(perSubtest) {
+  const answers = {};
+  for (const st of SUBTESTS) {
+    const qs = questionsFor('utbk').filter((q) => q.subtest === st.key);
+    const want = perSubtest[st.key] || 0;
+    qs.forEach((q, i) => {
+      answers[q.id] = i < want ? q.answer : wrongLetter(q);
+    });
+  }
+  return answers;
+}
+
+// Demo try outs for the viewer's own preview (?demo=1 on staging). Inserted
+// once per person, dated relative to req.now, scored by the same score() as
+// a real attempt. Deleted rows stay deleted.
 const DEMO_ATTEMPTS = [
-  { mode: 'cpns', minutesAgo: 1180, answers: { 'cpns-1': 'B', 'cpns-2': 'A', 'cpns-3': 'D' } },
-  { mode: 'utbk', minutesAgo: 4 * 1440 + 16 * 60 + 15, answers: { 'utbk-1': 'C', 'utbk-2': 'B', 'utbk-3': 'A' } },
-  { mode: 'cpns', minutesAgo: 7 * 1440 + 8 * 60 + 30, answers: { 'cpns-1': 'B', 'cpns-2': 'C', 'cpns-3': 'C' } },
-  { mode: 'utbk', minutesAgo: 9 * 1440 + 20 * 60 + 5, answers: { 'utbk-1': 'A', 'utbk-2': 'B', 'utbk-3': 'D' } },
-  { mode: 'utbk', minutesAgo: 13 * 1440 + 9 * 60, answers: { 'utbk-1': 'C', 'utbk-2': 'B', 'utbk-3': 'C' } },
-  { mode: 'cpns', minutesAgo: 18 * 1440 + 15 * 60, answers: { 'cpns-1': 'B', 'cpns-2': 'C', 'cpns-3': 'A' } },
+  { mode: 'utbk', daysAgo: 20, answers: demoAnswers({ pu: 3, pk: 2, lbi: 1, lbe: 3 }) },
+  { mode: 'utbk', daysAgo: 16, answers: demoAnswers({ pu: 3, pk: 3, lbi: 1, lbe: 3 }) },
+  { mode: 'utbk', daysAgo: 12, answers: demoAnswers({ pu: 3, pk: 3, lbi: 2, lbe: 3 }) },
+  { mode: 'utbk', daysAgo: 8, answers: demoAnswers({ pu: 3, pk: 3, lbi: 2, lbe: 4 }) },
+  { mode: 'utbk', daysAgo: 4, answers: demoAnswers({ pu: 4, pk: 3, lbi: 2, lbe: 4 }) },
+  { mode: 'utbk', daysAgo: 0.4, answers: demoAnswers({ pu: 4, pk: 4, lbi: 2, lbe: 4 }) },
+  { mode: 'cpns', daysAgo: 1, answers: { 'cpns-1': 'B', 'cpns-2': 'A', 'cpns-3': 'D' } },
+  { mode: 'cpns', daysAgo: 7, answers: { 'cpns-1': 'B', 'cpns-2': 'C', 'cpns-3': 'C' } },
+  { mode: 'cpns', daysAgo: 15, answers: { 'cpns-1': 'A', 'cpns-2': 'B', 'cpns-3': 'A' } },
 ];
 
 async function seedDemo(req, userId) {
@@ -233,8 +311,9 @@ async function seedDemo(req, userId) {
     if (!found.rows.length) {
       const name = req.user && req.user.username ? req.user.username : 'Tamu';
       await db.query(
-        `INSERT INTO profiles (user_id, name, target_exam, demo_seeded, updated_at)
-         VALUES ($1, $2, 'utbk', true, $3) ON CONFLICT (user_id) DO UPDATE SET demo_seeded = true`,
+        `INSERT INTO profiles (user_id, name, target_exam, target_campus, target_major, target_score, demo_seeded, updated_at)
+         VALUES ($1, $2, 'utbk', 'Universitas Indonesia', 'Kedokteran', 720, true, $3)
+         ON CONFLICT (user_id) DO UPDATE SET demo_seeded = true`,
         [userId, name, req.now]
       );
     } else {
@@ -242,11 +321,35 @@ async function seedDemo(req, userId) {
     }
     for (const d of DEMO_ATTEMPTS) {
       const s = score(d.mode, d.answers);
-      const created = new Date(req.now.getTime() - d.minutesAgo * 60000);
+      const created = new Date(req.now.getTime() - d.daysAgo * 1440 * 60000);
+      const duration = EXAMS[d.mode].durationMin * 60;
+      const used = Math.max(0, duration - 180 - Math.round(d.daysAgo * 7));
       await db.query(
-        `INSERT INTO attempts (user_id, mode, answers, score, max_score, passed, timed_out, is_demo, created_at)
-         VALUES ($1, $2, $3, $4, $5, $6, false, true, $7)`,
-        [userId, d.mode, JSON.stringify(d.answers), s.score, s.maxScore, s.passed, created]
+        `INSERT INTO attempts (user_id, mode, answers, score, max_score, passed, timed_out, is_demo,
+           created_at, flagged, time_used_sec, breakdown, correct, wrong, blank, questions)
+         VALUES ($1, $2, $3, $4, $5, $6, false, true, $7, $8, $9, $10, $11, $12, $13, $14)`,
+        [
+          userId, d.mode, JSON.stringify(d.answers), s.score, s.maxScore, s.passed, created,
+          JSON.stringify([]), used, JSON.stringify(s.breakdown), s.correct, s.wrong, s.blank,
+          JSON.stringify(questionsFor(d.mode).map(questionSnapshot)),
+        ]
+      );
+    }
+    // Four consecutive practice days ending today, so Beruntun shows 4.
+    for (let back = 3; back >= 0; back -= 1) {
+      const created = new Date(req.now.getTime() - back * 1440 * 60000);
+      const day = appDay(created);
+      const dayQs = practiceQuestions(day);
+      const answers = {};
+      dayQs.forEach((q, i) => {
+        answers[q.id] = i < 4 ? q.answer : wrongLetter(q);
+      });
+      const s = dayQs.reduce((sum, q) => sum + (answers[q.id] === q.answer ? 1 : 0), 0);
+      await db.query(
+        `INSERT INTO daily_practices (user_id, day, answers, correct, total, is_demo, created_at)
+         VALUES ($1, $2, $3, $4, 5, true, $5)
+         ON CONFLICT (user_id, day) DO NOTHING`,
+        [userId, day, JSON.stringify(answers), s, created]
       );
     }
     await db.query('COMMIT');
@@ -263,14 +366,31 @@ app.get('/api/me', async (req, res) => {
   const fallback = defaultProfile(req);
   if (!userId) return res.json(fallback);
   try {
+    // The dashboard asks for the profile and the attempts at the same time;
+    // seeding here too means the demo's target line is there on the first
+    // load, not only after the attempts call has created it.
+    if (wantsDemo(req)) await seedDemo(req, userId);
     const { rows } = await pool.query(
-      'SELECT name, target_exam, target_goal FROM profiles WHERE user_id = $1', [userId]);
-    if (!rows.length) return res.json(fallback);
+      `SELECT name, target_exam, target_campus, target_major, target_score
+         FROM profiles WHERE user_id = $1`, [userId]);
+    const latest = await pool.query(
+      `SELECT score, created_at FROM attempts
+        WHERE user_id = $1 AND mode = 'utbk' AND ($2::boolean OR is_demo = false)
+        ORDER BY created_at DESC, id DESC LIMIT 1`,
+      [userId, wantsDemo(req)]
+    );
+    const latestUtbk = latest.rows.length
+      ? { score: latest.rows[0].score, created_at: latest.rows[0].created_at }
+      : null;
+    if (!rows.length) return res.json(Object.assign({}, fallback, { latest_utbk: latestUtbk }));
     const r = rows[0];
     res.json({
       name: r.name || fallback.name,
       target_exam: r.target_exam === 'cpns' ? 'cpns' : 'utbk',
-      target_goal: r.target_goal || null,
+      target_campus: r.target_campus || '',
+      target_major: r.target_major || '',
+      target_score: Number.isFinite(r.target_score) ? r.target_score : 600,
+      latest_utbk: latestUtbk,
     });
   } catch (err) {
     console.error('GET /api/me failed: ' + err.message);
@@ -284,38 +404,50 @@ app.put('/api/me', async (req, res) => {
   const body = req.body || {};
   const name = typeof body.name === 'string' ? body.name.trim() : '';
   const targetExam = body.target_exam === 'cpns' ? 'cpns' : body.target_exam === 'utbk' ? 'utbk' : null;
-  const goalRaw = typeof body.target_goal === 'string' ? body.target_goal.trim() : '';
+  const campus = typeof body.target_campus === 'string' ? body.target_campus.trim() : '';
+  const major = typeof body.target_major === 'string' ? body.target_major.trim() : '';
+  const rawTarget = body.target_score;
+  const targetScore = rawTarget === undefined || rawTarget === null || rawTarget === '' ? 600 : Number(rawTarget);
   if (!name || name.length > 60) return res.status(400).json({ error: 'invalid_name' });
   if (!targetExam) return res.status(400).json({ error: 'invalid_target' });
-  if (goalRaw.length > 80) return res.status(400).json({ error: 'invalid_goal' });
-  const goal = goalRaw || null;
+  if (campus.length > 60) return res.status(400).json({ error: 'invalid_campus' });
+  if (major.length > 60) return res.status(400).json({ error: 'invalid_major' });
+  if (!Number.isInteger(targetScore) || targetScore < 0 || targetScore > 1000) {
+    return res.status(400).json({ error: 'invalid_target_score' });
+  }
   try {
     await pool.query(
-      `INSERT INTO profiles (user_id, name, target_exam, target_goal, updated_at)
-       VALUES ($1, $2, $3, $4, $5)
+      `INSERT INTO profiles (user_id, name, target_exam, target_campus, target_major, target_score, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
        ON CONFLICT (user_id) DO UPDATE
          SET name = EXCLUDED.name, target_exam = EXCLUDED.target_exam,
-             target_goal = EXCLUDED.target_goal, updated_at = EXCLUDED.updated_at`,
-      [userId, name, targetExam, goal, req.now]
+             target_campus = EXCLUDED.target_campus, target_major = EXCLUDED.target_major,
+             target_score = EXCLUDED.target_score, updated_at = EXCLUDED.updated_at`,
+      [userId, name, targetExam, campus, major, targetScore, req.now]
     );
-    res.json({ name, target_exam: targetExam, target_goal: goal });
+    res.json({
+      name,
+      target_exam: targetExam,
+      target_campus: campus,
+      target_major: major,
+      target_score: targetScore,
+    });
   } catch (err) {
     console.error('PUT /api/me failed: ' + err.message);
     res.status(500).json({ error: 'server_error' });
   }
 });
 
+app.get('/api/exams', (_req, res) => {
+  res.json({ exams: examMetas() });
+});
+
 app.get('/api/exams/:mode', (req, res) => {
-  const exam = EXAMS[req.params.mode];
-  if (!exam) return res.status(404).json({ error: 'not_found' });
-  res.json({
-    mode: exam.mode,
-    name: exam.name,
-    durationMin: exam.durationMin,
-    passingGrade: exam.passingGrade,
-    maxScore: exam.maxScore,
-    questions: questionsFor(exam.mode).map(publicQuestion),
-  });
+  const meta = examMeta(req.params.mode);
+  if (!meta) return res.status(404).json({ error: 'not_found' });
+  res.json(Object.assign({}, meta, {
+    questions: questionsFor(meta.mode).map(publicQuestion),
+  }));
 });
 
 app.post('/api/attempts', async (req, res) => {
@@ -326,13 +458,25 @@ app.post('/api/attempts', async (req, res) => {
   if (!EXAMS[mode]) return res.status(400).json({ error: 'invalid_mode' });
   const answers = body.answers && typeof body.answers === 'object' && !Array.isArray(body.answers)
     ? body.answers : {};
+  const validIds = new Set(questionsFor(mode).map((q) => q.id));
+  const flagged = Array.isArray(body.flagged)
+    ? body.flagged.filter((id) => typeof id === 'string' && validIds.has(id))
+    : [];
   const timedOut = body.timedOut === true;
+  const limit = EXAMS[mode].durationMin * 60;
+  const reported = Number(body.timeUsedSec);
+  const timeUsed = Number.isFinite(reported) ? Math.max(0, Math.min(limit, Math.round(reported))) : 0;
   const s = score(mode, answers);
   try {
     const { rows } = await pool.query(
-      `INSERT INTO attempts (user_id, mode, answers, score, max_score, passed, timed_out, is_demo, created_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id`,
-      [userId, mode, JSON.stringify(answers), s.score, s.maxScore, s.passed, timedOut, wantsDemo(req), req.now]
+      `INSERT INTO attempts (user_id, mode, answers, score, max_score, passed, timed_out, is_demo, created_at,
+         flagged, time_used_sec, breakdown, correct, wrong, blank, questions)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16) RETURNING id`,
+      [
+        userId, mode, JSON.stringify(answers), s.score, s.maxScore, s.passed, timedOut, wantsDemo(req), req.now,
+        JSON.stringify(flagged), timeUsed, JSON.stringify(s.breakdown), s.correct, s.wrong, s.blank,
+        JSON.stringify(questionsFor(mode).map(questionSnapshot)),
+      ]
     );
     res.status(201).json({ id: rows[0].id });
   } catch (err) {
@@ -348,7 +492,7 @@ app.get('/api/attempts', async (req, res) => {
   try {
     if (demo) await seedDemo(req, userId);
     const { rows } = await pool.query(
-      `SELECT id, mode, score, max_score, passed, timed_out, created_at
+      `SELECT id, mode, score, max_score, passed, timed_out, time_used_sec, created_at
          FROM attempts
         WHERE user_id = $1 AND ($2::boolean OR is_demo = false)
         ORDER BY created_at DESC, id DESC`,
@@ -367,28 +511,52 @@ app.get('/api/attempts/:id', async (req, res) => {
   if (!userId || !Number.isSafeInteger(id) || id <= 0) return res.status(404).json({ error: 'not_found' });
   try {
     const { rows } = await pool.query(
-      `SELECT id, mode, answers, score, max_score, passed, timed_out, created_at
+      `SELECT id, mode, answers, flagged, score, max_score, passed, timed_out, time_used_sec,
+              breakdown, correct, wrong, blank, questions, created_at
          FROM attempts WHERE id = $1 AND user_id = $2`, [id, userId]);
     if (!rows.length) return res.status(404).json({ error: 'not_found' });
     const attempt = rows[0];
-    const exam = EXAMS[attempt.mode];
+    const exam = examMeta(attempt.mode);
     const answers = attempt.answers || {};
-    const questions = questionsFor(attempt.mode).map((q) => ({
-      ...publicQuestion(q),
+    const flagged = Array.isArray(attempt.flagged) ? attempt.flagged : [];
+    const snapshot = Array.isArray(attempt.questions) ? attempt.questions : [];
+    // An attempt saved before the 20-question bank has no snapshot; its three
+    // old questions still live in LEGACY_QUESTIONS, keyed by the same ids.
+    const source = snapshot.length ? snapshot : legacyQuestionsFor(attempt.mode);
+    const questions = source.map((q) => ({
+      id: q.id,
+      subtest: q.subtest || null,
+      subtestName: q.subtestName || null,
+      topic: q.topic,
+      type: q.type || 'pilihan',
+      passage: q.passage || null,
+      prompt: q.prompt,
+      options: q.options,
       answer: q.answer || null,
       weights: q.weights || null,
-      explanation: q.explanation,
+      explanation: q.explanation || [],
       given: typeof answers[q.id] === 'string' ? answers[q.id] : null,
+      flagged: flagged.indexOf(q.id) !== -1,
     }));
+    const breakdown = attempt.breakdown && Object.keys(attempt.breakdown).length
+      ? attempt.breakdown : null;
     res.json({
-      attempt,
-      exam: {
-        mode: exam.mode,
-        name: exam.name,
-        maxScore: exam.maxScore,
-        passingGrade: exam.passingGrade,
-        durationMin: exam.durationMin,
+      attempt: {
+        id: attempt.id,
+        mode: attempt.mode,
+        score: attempt.score,
+        max_score: attempt.max_score,
+        passed: attempt.passed,
+        timed_out: attempt.timed_out,
+        time_used_sec: attempt.time_used_sec,
+        correct: attempt.correct,
+        wrong: attempt.wrong,
+        blank: attempt.blank,
+        created_at: attempt.created_at,
       },
+      exam,
+      breakdown,
+      legacy: snapshot.length === 0,
       questions,
     });
   } catch (err) {
@@ -407,6 +575,235 @@ app.delete('/api/attempts/:id', async (req, res) => {
     res.status(204).end();
   } catch (err) {
     console.error('DELETE /api/attempts/:id failed: ' + err.message);
+    res.status(500).json({ error: 'server_error' });
+  }
+});
+
+// ── Streak, progress and daily practice ────────────────────────────────────
+function isoDay(n) {
+  return new Date(n * 86400000).toISOString().slice(0, 10);
+}
+
+function streakFrom(dayStrings, today) {
+  const set = new Set(dayStrings.map(dayNumber));
+  const t = dayNumber(today);
+  const start = set.has(t) ? t : set.has(t - 1) ? t - 1 : null;
+  let current = 0;
+  if (start !== null) {
+    let d = start;
+    while (set.has(d)) {
+      current += 1;
+      d -= 1;
+    }
+  }
+  const sorted = Array.from(set).sort((a, b) => a - b);
+  let longest = 0;
+  let run = 0;
+  let prev = null;
+  for (const n of sorted) {
+    run = prev !== null && n === prev + 1 ? run + 1 : 1;
+    if (run > longest) longest = run;
+    prev = n;
+  }
+  const recent = [];
+  for (let i = 6; i >= 0; i -= 1) {
+    const n = t - i;
+    recent.push({ day: isoDay(n), done: set.has(n) });
+  }
+  return { current, longest, todayDone: set.has(t), recent };
+}
+
+async function completedDays(userId, demo) {
+  const { rows } = await pool.query(
+    `SELECT to_char(created_at AT TIME ZONE $3, 'YYYY-MM-DD') AS day
+       FROM attempts WHERE user_id = $1 AND ($2::boolean OR is_demo = false)
+     UNION
+     SELECT to_char(day, 'YYYY-MM-DD') AS day
+       FROM daily_practices WHERE user_id = $1 AND ($2::boolean OR is_demo = false)`,
+    [userId, demo, APP_TIME_ZONE]
+  );
+  return rows.map((r) => r.day);
+}
+
+async function practicePayload(req, userId) {
+  const day = appDay(req.now);
+  const demo = wantsDemo(req);
+  const dayQuestions = practiceQuestions(day);
+  let stored = null;
+  if (userId) {
+    const found = await pool.query(
+      `SELECT answers, correct, total FROM daily_practices
+        WHERE user_id = $1 AND day = $2 AND ($3::boolean OR is_demo = false)`,
+      [userId, day, demo]
+    );
+    stored = found.rows[0] || null;
+  }
+  const publicQs = dayQuestions.map(publicQuestion);
+  if (stored) {
+    const answers = stored.answers || {};
+    return {
+      day,
+      done: true,
+      correct: stored.correct,
+      total: stored.total,
+      answers,
+      questions: publicQs.map((pq, i) => Object.assign({}, pq, {
+        answer: dayQuestions[i].answer || null,
+        weights: dayQuestions[i].weights || null,
+        explanation: dayQuestions[i].explanation || [],
+        given: typeof answers[pq.id] === 'string' ? answers[pq.id] : null,
+      })),
+    };
+  }
+  return { day, done: false, correct: 0, total: publicQs.length, answers: {}, questions: publicQs };
+}
+
+app.get('/api/streak', async (req, res) => {
+  const userId = userIdOf(req);
+  if (!userId) return res.json(streakFrom([], appDay(req.now)));
+  try {
+    const demo = wantsDemo(req);
+    if (demo) await seedDemo(req, userId);
+    const days = await completedDays(userId, demo);
+    res.json(streakFrom(days, appDay(req.now)));
+  } catch (err) {
+    console.error('GET /api/streak failed: ' + err.message);
+    res.status(500).json({ error: 'server_error' });
+  }
+});
+
+app.get('/api/progress', async (req, res) => {
+  const mode = req.query.mode === 'cpns' ? 'cpns' : 'utbk';
+  const userId = userIdOf(req);
+  const demo = wantsDemo(req);
+  const empty = {
+    mode,
+    count: 0,
+    best: null,
+    average: null,
+    targetScore: null,
+    weakest: null,
+    perSubtest: [],
+    trend: [],
+    attempts: [],
+  };
+  if (!userId) return res.json(empty);
+  try {
+    if (demo) await seedDemo(req, userId);
+    const { rows } = await pool.query(
+      `SELECT id, mode, score, max_score, passed, timed_out, time_used_sec, breakdown,
+              correct, wrong, blank, created_at
+         FROM attempts
+        WHERE user_id = $1 AND mode = $2 AND ($3::boolean OR is_demo = false)
+        ORDER BY created_at ASC, id ASC`,
+      [userId, mode, demo]
+    );
+    if (!rows.length) return res.json(empty);
+    const profile = await pool.query('SELECT target_score FROM profiles WHERE user_id = $1', [userId]);
+    const targetScore = profile.rows.length ? Number(profile.rows[0].target_score) : 600;
+    const sum = rows.reduce((acc, r) => acc + r.score, 0);
+    const averages = new Map();
+    for (const r of rows) {
+      const breakdown = r.breakdown || {};
+      for (const key of Object.keys(breakdown)) {
+        const item = breakdown[key];
+        if (!averages.has(key)) {
+          averages.set(key, { key, name: item.name || key, total: 0, count: 0, max: item.max || 0 });
+        }
+        const acc = averages.get(key);
+        acc.total += item.score || 0;
+        acc.count += 1;
+        acc.max = item.max || acc.max;
+      }
+    }
+    const order = SUBTESTS.map((s) => s.key);
+    const perSubtest = Array.from(averages.values())
+      .map((a) => ({ key: a.key, name: a.name, average: Math.round(a.total / a.count), max: a.max, count: a.count }))
+      .sort((a, b) => {
+        const ai = order.indexOf(a.key);
+        const bi = order.indexOf(b.key);
+        return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
+      });
+    let weakest = null;
+    if (mode === 'utbk') {
+      for (const item of perSubtest) {
+        if (!weakest || item.average < weakest.average) weakest = item;
+      }
+    }
+    res.json({
+      mode,
+      count: rows.length,
+      best: Math.max.apply(null, rows.map((r) => r.score)),
+      average: Math.round(sum / rows.length),
+      targetScore: mode === 'utbk' ? targetScore : null,
+      weakest,
+      perSubtest,
+      trend: rows.slice(-12).map((r) => ({
+        id: r.id,
+        score: r.score,
+        maxScore: r.max_score,
+        created_at: r.created_at,
+      })),
+      attempts: rows.slice().reverse().map((r) => ({
+        id: r.id,
+        mode: r.mode,
+        score: r.score,
+        max_score: r.max_score,
+        passed: r.passed,
+        timed_out: r.timed_out,
+        time_used_sec: r.time_used_sec,
+        created_at: r.created_at,
+      })),
+    });
+  } catch (err) {
+    console.error('GET /api/progress failed: ' + err.message);
+    res.status(500).json({ error: 'server_error' });
+  }
+});
+
+app.get('/api/practice', async (req, res) => {
+  const userId = userIdOf(req);
+  try {
+    if (wantsDemo(req)) {
+      if (userId) await seedDemo(req, userId);
+    }
+    const payload = await practicePayload(req, userId);
+    if (userId) {
+      const days = await completedDays(userId, wantsDemo(req));
+      payload.streak = streakFrom(days, appDay(req.now));
+    }
+    res.json(payload);
+  } catch (err) {
+    console.error('GET /api/practice failed: ' + err.message);
+    res.status(500).json({ error: 'server_error' });
+  }
+});
+
+app.post('/api/practice', async (req, res) => {
+  const userId = userIdOf(req);
+  if (!userId) return res.status(401).json({ error: 'account_required' });
+  const body = req.body || {};
+  const answers = body.answers && typeof body.answers === 'object' && !Array.isArray(body.answers)
+    ? body.answers : {};
+  const day = appDay(req.now);
+  const dayQuestions = practiceQuestions(day);
+  let correct = 0;
+  for (const q of dayQuestions) {
+    if (answers[q.id] === q.answer) correct += 1;
+  }
+  try {
+    await pool.query(
+      `INSERT INTO daily_practices (user_id, day, answers, correct, total, is_demo, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       ON CONFLICT (user_id, day) DO NOTHING`,
+      [userId, day, JSON.stringify(answers), correct, dayQuestions.length, wantsDemo(req), req.now]
+    );
+    const payload = await practicePayload(req, userId);
+    const days = await completedDays(userId, wantsDemo(req));
+    payload.streak = streakFrom(days, day);
+    res.status(201).json(payload);
+  } catch (err) {
+    console.error('POST /api/practice failed: ' + err.message);
     res.status(500).json({ error: 'server_error' });
   }
 });

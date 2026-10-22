@@ -98,13 +98,20 @@ tables you've marked private), etc.
 Practise UTBK and CPNS exams like the real thing.
 
 A timed try-out app for Indonesian entrance exams. One dashboard shows the
-person's profile (name, target exam, optional goal) and two modes, Try Out
-UTBK PTN and Try Out CAT CPNS. Each mode opens a CAT-style quiz: question and
-options on the left, a numbered answer rail on the right, a countdown timer
-that ends the exam by itself at zero. The results screen shows the score
-against the passing grade and a step-by-step explanation for every question.
-The three UTBK and three CPNS questions live in `questions.js` and are
-placeholder content, not real exam questions.
+person's profile (name, target exam, campus and major for UTBK, target
+score), the daily streak and two modes, Try Out UTBK PTN and Try Out CAT
+CPNS. Try Out UTBK PTN asks 20 questions across four subtests (Penalaran
+Umum, Pengetahuan Kuantitatif, Literasi Bahasa Indonesia, Literasi Bahasa
+Inggris), five each, 50 points per correct answer, a total of 1000 with a
+passing grade of 600. Each mode opens a CAT-style quiz: question and options
+in a card, a numbered navigator that shows answered, flagged and empty
+questions, a countdown timer that ends the exam by itself at zero. The
+result shows the score against the passing grade, the counts of right,
+wrong and empty answers, the time used and a bar per subtest; a separate
+Tinjau jawaban page explains every question. Perkembangan charts the score
+history and names the weakest subtest, and a daily Latihan 5 soal keeps the
+streak. The 20 UTBK and 3 CPNS questions live in `questions.js` and are
+original practice content, not real exam questions.
 
 ## Your people's data
 
@@ -135,12 +142,16 @@ change follows it, and updates it when a request changes the look on purpose.
   the mode cards' information pills are frosted light chips carrying the
   card's own colour, because white-on-tint text would fall under 4.5:1.
   Cards lift on hover and the mode cards scale to 1.02 (not under
-  reduced motion).
+  reduced motion). Under the profile card sits the warm streak strip
+  ("Beruntun N hari" and **Latihan 5 soal**); the profile card names the
+  target campus and major with the gap to the latest UTBK score.
 - **Signature element:** the answer rail. Small rounded number tiles that
-  fill indigo once the question is answered, like an exam answer sheet; it
-  appears on the quiz screen, outlined on each mode card as that card's
-  progress tracker (filling light on hover), and in green and red on the
-  results screen.
+  fill indigo once the question is answered and take an amber ring when
+  flagged, like an exam answer sheet; on a wide window it sits beside the
+  question as a five-column grid, on a phone it opens as a sheet from the
+  "N dari 20 dijawab" chip. It also appears outlined on each mode card as
+  that card's progress tracker (filling light on hover), and in green and
+  red on the review page.
 - **Type scale:** `text-title`, `text-heading`, `text-body`, `text-small`
   (change their sizes in `tailwind.config.js` if you must, not their number).
   System UI type, with tabular figures for the timer and the scores.
@@ -183,12 +194,24 @@ Re-theme by changing the token values there, keeping every text pair at
 
 ## App-specific conventions
 
-- Both tables, `profiles` and `attempts`, are marked `staging:private`; both
-  are keyed by `user_id`, so `usernode-user-data.js` covers them as is.
+- All three tables, `profiles`, `attempts` and `daily_practices`, are marked
+  `staging:private` and keyed by `user_id`, so `usernode-user-data.js`
+  covers them as is.
 - `questions.js` is the only place a question's answer key, TKP weights or
-  explanation lives. The exam route never sends them; only the results route
-  does, for the viewer's own attempt.
+  explanation is authored. The exam route never sends them; only the review
+  route does, for the viewer's own attempt. An attempt keeps a snapshot of
+  its questions, taken server-side at submit, so an old result stays
+  explainable after the bank changes; that snapshot is the only copy
+  outside `questions.js`, and only the review route may return it.
 - An unfinished exam is never saved. Leaving the exam screen or closing the
-  app discards it.
+  app discards it, flags included.
 - Scores are computed on the server by `questions.js`'s `score()`, never by
-  the page; the page only shows what an attempt stored.
+  the page; the page only shows what an attempt stored. UTBK is
+  20 questions at 50 points each, 0 to 1000, passing grade 600.
+- A daily practice is not a try out: it never appears in Hasil terakhir or
+  Perkembangan, only in the streak. `daily_practices` holds one row per
+  person per day. The streak unions days with a practice and days with a
+  finished attempt.
+- Days (streak, daily practice) turn over at midnight in `Asia/Jakarta`.
+  The server derives the day from `req.now` with `Intl.DateTimeFormat`, so
+  a staging preview opened with `?un-now=` sees the right day.

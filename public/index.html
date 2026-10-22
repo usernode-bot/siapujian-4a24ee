@@ -143,12 +143,24 @@
             <svg class="role-ico role-ico-cpns" viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
             <span id="profile-role-label">Pejuang PTN</span>
           </span>
-          <span class="prof-goal" id="profile-target" hidden></span>
+          <span class="prof-target" id="profile-target" hidden>
+            <span id="profile-target-name"></span>
+            <span class="gap-chip" id="profile-gap" hidden></span>
+          </span>
         </div>
       </div>
-      <button class="icon-btn" id="edit-profile" type="button" aria-label="Ubah profil">
+      <a class="icon-btn" id="edit-profile" href="/profil" aria-label="Ubah profil">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
-      </button>
+      </a>
+    </section>
+
+    <section class="streak" id="streak-strip" aria-label="Latihan harian">
+      <span class="streak-ico" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M8 2v4"/><path d="M16 2v4"/><path d="M3 10h18"/><path d="m9 15 2 2 4-4"/></svg></span>
+      <div class="streak-body">
+        <div class="streak-title" id="streak-title"><span class="skeleton" style="display:block;height:16px;width:120px;margin:2px 0"></span></div>
+        <div class="streak-sub" id="streak-sub"></div>
+      </div>
+      <a class="btn-primary streak-btn" id="streak-action" href="/latihan">Latihan 5 soal</a>
     </section>
 
     <h2 class="home-heading">Pilih mode ujian</h2>
@@ -160,6 +172,7 @@
         <p class="mode-desc">Benar dapat poin, salah dan kosong nol. Skor 0 sampai 1000.</p>
         <div class="mode-badges">
           <span class="mode-badge"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></svg><span data-meta="count"></span></span>
+          <span class="mode-badge" data-meta="subtes" hidden></span>
           <span class="mode-badge"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg><span data-meta="duration"></span></span>
           <span class="mode-badge"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg><span data-meta="passing"></span></span>
         </div>
@@ -179,7 +192,7 @@
       </a>
     </div>
 
-    <h2 class="home-heading">Hasil terakhir<span class="demo-note" data-usernode-demo-note hidden>Staging demo</span></h2>
+    <h2 class="home-heading">Hasil terakhir <a class="see-all" href="/progres">Lihat semua</a><span class="demo-note" data-usernode-demo-note hidden>Staging demo</span></h2>
     <div class="results-card">
       <ul class="list" id="results" hidden></ul>
       <div id="results-state"></div>

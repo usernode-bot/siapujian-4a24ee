@@ -5,6 +5,7 @@ const jwt = require('jsonwebtoken');
 const {
   EXAMS, SUBTESTS, LEGACY_IDS, questionsFor, byId, publicQuestion, score, wibDay, dailyIds,
 } = require('./questions');
+const ai = require('./ai');
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -206,6 +207,9 @@ async function migrate() {
   await pool.query('ALTER TABLE attempts ADD COLUMN IF NOT EXISTS duration_sec int');
   await pool.query(`COMMENT ON TABLE profiles IS 'staging:private'`);
   await pool.query(`COMMENT ON TABLE attempts IS 'staging:private'`);
+  // Tanya AI's two tables (chat history per question, the daily counter),
+  // both staging:private and keyed by user_id.
+  await ai.migrate(pool);
 }
 
 const wantsDemo = (req) => IS_STAGING && req.query.demo === '1';
@@ -607,6 +611,11 @@ app.delete('/api/attempts/:id', async (req, res) => {
     res.status(500).json({ error: 'server_error' });
   }
 });
+
+// Tanya AI: the chat screen's routes. Mounted with the app's other API
+// routes so they sit behind the sign-in middleware, and before the static
+// handler and the HTML catch-all.
+ai.mount(app, pool);
 
 app.use(express.static(path.join(__dirname, 'public')));
 

@@ -32,11 +32,24 @@
     opts = opts || {};
     var headers = Object.assign({ 'content-type': 'application/json' }, opts.headers || {});
     if (TOKEN) headers['x-usernode-token'] = TOKEN;
+    // A staging preview can be shown as of a chosen moment. Every API call
+    // tells the server that moment, so the daily AI counter and the dates in
+    // the results list agree with what the page shows.
+    try {
+      if (window.usernode && window.usernode.previewNow) {
+        headers['x-usernode-now'] = now().toISOString();
+      }
+    } catch (e) {}
     return fetch(path, Object.assign({}, opts, { headers: headers })).then(function (r) {
       if (r.status === 204) return null;
       var body = r.json().catch(function () { return {}; });
       return body.then(function (b) {
-        if (!r.ok) throw new Error((b && b.error) || 'HTTP ' + r.status);
+        if (!r.ok) {
+          var err = new Error((b && b.error) || 'HTTP ' + r.status);
+          err.status = r.status;
+          err.code = b && b.error;
+          throw err;
+        }
         return b;
       });
     });
@@ -125,8 +138,15 @@
 
   // ── Routing ─────────────────────────────────────────────────────────────
   function navigate(path) {
-    if (path + location.search === location.pathname + location.search) return;
-    history.pushState({}, '', path + location.search);
+    var target = path;
+    // A plain path keeps the staging demo flag (but not the chat's own query
+    // parameters); a path that already carries its own query is used as is.
+    if (path.indexOf('?') === -1) {
+      var demo = new URLSearchParams(location.search).get('demo');
+      if (demo === '1') target += '?demo=1';
+    }
+    if (target === location.pathname + location.search) return;
+    history.pushState({}, '', target);
     renderRoute();
   }
 
@@ -149,6 +169,8 @@
     if (m) return renderReview(m[1]);
     m = p.match(/^\/hasil\/(\d+)$/);
     if (m) return renderResults(m[1]);
+    if (p === '/tanya-ai/riwayat') return renderAiHistory();
+    if (p === '/tanya-ai') return renderAiChat();
     history.replaceState({}, '', '/' + location.search);
     return renderHome();
   }
@@ -518,6 +540,8 @@
 
   var BACK_SVG = '<svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg>';
   var CLOCK_SVG = '<svg viewBox="0 0 24 24"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2M10 2h4"/></svg>';
+  var SPARK_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/><path d="M20 3v4"/><path d="M22 5h-4"/><path d="M4 17v2"/><path d="M5 18H3"/></svg>';
+  var SEND_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5"/><path d="m5 12 7-7 7 7"/></svg>';
 
   var FLAG_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 22V4"/><path d="M4 4h12l-2 4 2 4H4"/></svg>';
 
@@ -910,7 +934,7 @@
     });
   }
 
-  function resultEntry(q, i, exam) {
+  function resultEntry(q, i, exam, attemptId) {
     var isTkp = q.type === 'tkp';
     var given = q.given;
     var entry = el('div', 'card entry');
@@ -971,7 +995,652 @@
     });
     explain.appendChild(ol);
     entry.appendChild(explain);
+
+    // Review mode's entry point to Tanya AI: the question, the viewer's
+    // answer and the answer key travel with them.
+    if (attemptId) {
+      var aiBtn = el('button', 'ai-ask');
+      aiBtn.type = 'button';
+      aiBtn.innerHTML = SPARK_SVG + '<span>Tanya AI</span>';
+      aiBtn.setAttribute('aria-label', 'Tanya AI tentang soal ' + (i + 1));
+      aiBtn.addEventListener('click', function () {
+        navigate('/tanya-ai?attempt=' + encodeURIComponent(attemptId) + '&q=' + encodeURIComponent(q.id));
+      });
+      entry.appendChild(aiBtn);
+    }
     return entry;
+  }
+
+  // ── Tanya AI ────────────────────────────────────────────────────────────
+  // The chat screen (/tanya-ai) and the saved explanations list
+  // (/tanya-ai/riwayat). The AI is called by the server through the
+  // platform's LLM proxy; in a preview the server answers with clearly
+  // labelled sample content instead.
+
+  var AI_STATE = null;
+
+  var AI_CHIPS = [
+    { intent: 'explain', label: 'Jelaskan jawaban ini', message: 'Jelaskan jawaban ini langkah demi langkah.' },
+    { intent: 'quick', label: 'Kasih cara cepat', message: 'Kasih cara cepat mengerjakan soal ini.' },
+    { intent: 'practice', label: 'Soal serupa', message: null },
+    { intent: 'wrong', label: 'Kenapa jawabanku salah?', message: 'Kenapa jawabanku salah?' },
+    { intent: 'study', label: 'Bantu aku belajar', message: null },
+  ];
+
+  function aiShell() {
+    return '<div class="ai-screen"><div class="app ai-app">' +
+      '<div class="bar ai-bar">' +
+        '<button class="btn-secondary ai-back" id="ai-back" type="button" aria-label="Kembali ke beranda">' + BACK_SVG + '</button>' +
+        '<div class="ai-bar-text"><div class="ttl">Tanya AI</div><div class="s" id="ai-usage">Memuat...</div></div>' +
+        '<a class="btn-secondary ai-history" href="/tanya-ai/riwayat">Riwayat</a>' +
+      '</div>' +
+      '<div id="ai-context"></div>' +
+      '<div class="ai-chat" id="ai-chat"><div class="ai-boot">' +
+        '<span class="skeleton" style="display:block;height:20px;width:70%;margin-bottom:10px"></span>' +
+        '<span class="skeleton" style="display:block;height:20px;width:45%"></span>' +
+      '</div></div>' +
+      '<div class="ai-chips-slot" id="ai-chips-slot"></div>' +
+      '<form class="ai-compose" id="ai-compose">' +
+        '<textarea class="field ai-input" id="ai-input" rows="1" maxlength="1000" ' +
+          'placeholder="Tulis pertanyaanmu..." aria-label="Pertanyaan untuk Tanya AI" enterkeyhint="send"></textarea>' +
+        '<button class="ai-send" id="ai-send" type="submit" aria-label="Kirim pertanyaan" disabled>' + SEND_SVG + '</button>' +
+      '</form>' +
+      '<div class="s ai-note" id="ai-note" role="status"></div>' +
+      '</div></div>';
+  }
+
+  function renderAiChat() {
+    var p = new URLSearchParams(location.search);
+    AI_STATE = {
+      chat: null, status: null, messages: [], sending: false,
+      last: null, grantRetried: false, error: null,
+    };
+    view.innerHTML = aiShell();
+
+    document.getElementById('ai-back').addEventListener('click', function () { navigate('/'); });
+
+    var input = document.getElementById('ai-input');
+    var form = document.getElementById('ai-compose');
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      var text = input.value.trim();
+      if (text) aiSend(text, null);
+    });
+    input.addEventListener('input', function () {
+      aiAutosize(input);
+      aiPaintComposer();
+    });
+    input.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        var text = input.value.trim();
+        if (text) aiSend(text, null);
+      }
+    });
+
+    api('/api/ai/status').then(aiApplyStatus).catch(function () {});
+    aiPaintComposer();
+
+    var chatId = p.get('chat');
+    var opened;
+    if (chatId) {
+      opened = api('/api/ai/chats/' + encodeURIComponent(chatId));
+    } else {
+      opened = api('/api/ai/chats', {
+        method: 'POST',
+        body: JSON.stringify({
+          questionId: p.get('q') || undefined,
+          attemptId: p.get('attempt') || undefined,
+        }),
+      });
+    }
+    opened.then(function (data) {
+      if (!document.getElementById('ai-chat')) return;
+      AI_STATE.chat = data.chat;
+      AI_STATE.messages = Array.isArray(data.chat.messages) ? data.chat.messages.slice() : [];
+      if (data.usage) aiApplyUsage(data.usage);
+      aiPaintContext();
+      aiPaintChips();
+      aiPaintMessages();
+      aiPaintComposer();
+    }).catch(function (err) {
+      if (!document.getElementById('ai-chat')) return;
+      aiBootError(err);
+    });
+  }
+
+  function aiBootError(err) {
+    var box = document.getElementById('ai-chat');
+    if (!box) return;
+    box.innerHTML = '';
+    var wrap = el('div', 'state-error');
+    if (err && err.code === 'account_required') {
+      wrap.appendChild(el('div', 'text-body font-medium', 'Masuk ke Homeroom untuk memakai Tanya AI.'));
+      wrap.appendChild(el('div', 'text-small text-muted', 'Percakapan dan riwayatnya disimpan untuk akunmu.'));
+      var signIn = el('button', 'btn-secondary', 'Buat akun');
+      signIn.type = 'button';
+      signIn.addEventListener('click', aiAskAccount);
+      wrap.appendChild(signIn);
+    } else {
+      var missing = err && err.status === 404;
+      wrap.appendChild(el('div', 'text-body font-medium',
+        missing ? 'Percakapan ini tidak ditemukan.' : 'Tanya AI tidak bisa dimuat.'));
+      wrap.appendChild(el('div', 'text-small text-muted',
+        missing ? 'Mungkin percakapan ini sudah dihapus.' : 'Periksa koneksimu, lalu coba lagi.'));
+      var retry = el('button', 'btn-secondary', 'Coba lagi');
+      retry.type = 'button';
+      retry.addEventListener('click', renderAiChat);
+      wrap.appendChild(retry);
+    }
+    box.appendChild(wrap);
+  }
+
+  function aiApplyStatus(status) {
+    if (!AI_STATE || !status) return;
+    AI_STATE.status = Object.assign({}, AI_STATE.status || {}, status);
+    aiPaintStatus();
+    aiPaintComposer();
+  }
+
+  function aiApplyUsage(usage) {
+    if (!AI_STATE || !usage) return;
+    AI_STATE.status = Object.assign({}, AI_STATE.status || {}, usage);
+    aiPaintStatus();
+    aiPaintComposer();
+  }
+
+  function aiPaintStatus() {
+    var usageEl = document.getElementById('ai-usage');
+    var noteEl = document.getElementById('ai-note');
+    if (!usageEl || !noteEl || !AI_STATE) return;
+    var s = AI_STATE.status;
+    if (!s) {
+      usageEl.textContent = 'Memuat...';
+      return;
+    }
+    if (s.member === false) {
+      usageEl.textContent = 'Masuk untuk memakai';
+      noteEl.textContent = 'Masuk ke Homeroom untuk memakai Tanya AI dan menyimpan riwayat percakapan.';
+      return;
+    }
+    usageEl.textContent = s.used + '/' + s.limit + ' pertanyaan hari ini';
+    if (s.remaining <= 0) {
+      noteEl.textContent = 'Kuota harian habis. Bertanya lagi besok pukul 00.00 WIB.';
+    } else if (s.enabled === false) {
+      noteEl.textContent = 'Mode contoh: jawaban disusun dari pembahasan bawaan karena AI asli belum tersedia di lingkungan ini.';
+    } else {
+      noteEl.textContent = '';
+    }
+  }
+
+  function aiPaintComposer() {
+    var input = document.getElementById('ai-input');
+    var button = document.getElementById('ai-send');
+    if (!input || !button || !AI_STATE) return;
+    var s = AI_STATE.status;
+    var outOfQuota = !!(s && s.member !== false && s.remaining <= 0);
+    var notReady = !AI_STATE.chat;
+    input.disabled = notReady || outOfQuota || AI_STATE.sending;
+    button.disabled = notReady || outOfQuota || AI_STATE.sending || !input.value.trim();
+  }
+
+  function aiSend(text, intent) {
+    if (!text || !AI_STATE || AI_STATE.sending) return;
+    if (AI_STATE.status && AI_STATE.status.member === false) { aiAskAccount(); return; }
+    if (!AI_STATE.chat) return;
+    aiRequest('/api/ai/chat', {
+      chatId: AI_STATE.chat.id,
+      message: text,
+      intent: intent || undefined,
+    }, text);
+  }
+
+  function aiPractice(topic) {
+    if (!AI_STATE || !AI_STATE.chat || AI_STATE.sending) return;
+    if (AI_STATE.status && AI_STATE.status.member === false) { aiAskAccount(); return; }
+    aiRequest('/api/ai/practice', {
+      chatId: AI_STATE.chat.id,
+      topic: topic,
+    }, 'Buat 3 soal latihan tentang ' + topic + '.');
+  }
+
+  function aiStudyPlan() {
+    if (!AI_STATE || !AI_STATE.chat || AI_STATE.sending) return;
+    if (AI_STATE.status && AI_STATE.status.member === false) { aiAskAccount(); return; }
+    aiRequest('/api/ai/study-plan', {
+      chatId: AI_STATE.chat.id,
+    }, 'Bantu aku belajar. Buat rencana 7 hari.');
+  }
+
+  function aiRequest(path, payload, localText) {
+    if (!AI_STATE) return;
+    AI_STATE.error = null;
+    AI_STATE.last = { path: path, payload: payload, localText: localText };
+    if (localText) {
+      AI_STATE.messages.push({ role: 'user', text: localText, at: new Date().toISOString() });
+    }
+    AI_STATE.sending = true;
+    var input = document.getElementById('ai-input');
+    if (input) input.value = '';
+    aiAutosize(input);
+    aiPaintMessages();
+    aiPaintChips();
+    aiPaintComposer();
+    aiScrollToEnd();
+
+    api(path, { method: 'POST', body: JSON.stringify(payload) }).then(function (r) {
+      if (!document.getElementById('ai-chat') || !AI_STATE) return;
+      AI_STATE.sending = false;
+      if (r && r.reply) AI_STATE.messages.push(r.reply);
+      if (r && r.usage) aiApplyUsage(r.usage);
+      aiPaintMessages();
+      aiPaintChips();
+      aiPaintComposer();
+      aiScrollToEnd();
+    }).catch(function (err) {
+      if (!document.getElementById('ai-chat') || !AI_STATE) return;
+      AI_STATE.sending = false;
+      aiHandleError(err);
+    });
+  }
+
+  function aiDropLocalMessage() {
+    var last = AI_STATE && AI_STATE.last;
+    if (!last || !last.localText) return;
+    var m = AI_STATE.messages[AI_STATE.messages.length - 1];
+    if (m && m.role === 'user' && m.text === last.localText) AI_STATE.messages.pop();
+  }
+
+  function aiHandleError(err) {
+    var code = err && err.code;
+    if (code === 'account_required') {
+      aiDropLocalMessage();
+      aiPaintMessages();
+      aiPaintChips();
+      aiPaintComposer();
+      aiAskAccount();
+      return;
+    }
+    if (code === 'grant_required' && !AI_STATE.grantRetried &&
+        window.usernode && typeof usernode.requestLlmAccess === 'function') {
+      AI_STATE.grantRetried = true;
+      aiPaintMessages();
+      aiPaintComposer();
+      usernode.requestLlmAccess().then(function (r) {
+        if (r && r.granted) {
+          aiRetryLast();
+        } else {
+          AI_STATE.error = 'Akses AI belum diizinkan. Kamu bisa mengizinkannya dari pengaturan Homeroom.';
+          aiPaintMessages();
+        }
+      }).catch(function () {
+        AI_STATE.error = 'Akses AI tidak tersedia di sini.';
+        aiPaintMessages();
+      });
+      return;
+    }
+    if (code === 'daily_limit') {
+      AI_STATE.error = 'Kuota harian habis. Bertanya lagi besok pukul 00.00 WIB.';
+      api('/api/ai/status').then(aiApplyStatus).catch(function () {});
+    } else if (code === 'app_cap_exceeded') {
+      AI_STATE.error = 'Batas AI harian untuk aplikasi ini sudah tercapai. Coba lagi besok.';
+    } else if (code === 'budget_exceeded') {
+      AI_STATE.error = 'Anggaran AI harianmu sudah habis. Coba lagi besok.';
+    } else if (code === 'practice_failed') {
+      AI_STATE.error = 'Soal latihan belum bisa dibuat. Coba lagi.';
+    } else {
+      AI_STATE.error = 'Jawaban belum bisa dimuat. Coba lagi.';
+    }
+    aiPaintMessages();
+    aiPaintChips();
+    aiPaintComposer();
+    aiScrollToEnd();
+  }
+
+  function aiRetryLast() {
+    var last = AI_STATE && AI_STATE.last;
+    if (!last || AI_STATE.sending) return;
+    aiDropLocalMessage();
+    aiRequest(last.path, last.payload, last.localText);
+  }
+
+  function aiAskAccount() {
+    try {
+      if (window.usernode && typeof usernode.askForAccount === 'function') {
+        usernode.askForAccount({ action: 'memakai Tanya AI' });
+        return;
+      }
+    } catch (e) {}
+  }
+
+  function aiAutosize(input) {
+    if (!input) return;
+    input.style.height = 'auto';
+    input.style.height = Math.min(input.scrollHeight, 120) + 'px';
+  }
+
+  function aiScrollToEnd() {
+    var box = document.getElementById('ai-chat');
+    if (!box) return;
+    var last = box.lastElementChild;
+    if (last && last.scrollIntoView) last.scrollIntoView({ block: 'end' });
+  }
+
+  function aiPaintMessages() {
+    var box = document.getElementById('ai-chat');
+    if (!box || !AI_STATE) return;
+    box.innerHTML = '';
+    if (!AI_STATE.messages.length && !AI_STATE.sending) {
+      box.appendChild(aiEmptyState());
+    } else {
+      AI_STATE.messages.forEach(function (m) { box.appendChild(aiMessageNode(m)); });
+      if (AI_STATE.sending) box.appendChild(aiTypingNode());
+    }
+    if (AI_STATE.error) box.appendChild(aiErrorNode());
+  }
+
+  function aiEmptyState() {
+    var wrap = el('div', 'ai-empty');
+    wrap.appendChild(el('div', 'ai-empty-title', 'Mulai tanya soal apa saja'));
+    wrap.appendChild(el('p', 's ai-empty-text',
+      'Pilih tombol cepat di bawah, atau tulis pertanyaanmu. Jawaban singkat dulu, detailnya bisa kamu buka.'));
+
+    var sample = el('div', 'ai-sample');
+    sample.setAttribute('aria-label', 'Contoh percakapan');
+    sample.appendChild(el('div', 'ai-sample-label', 'Contoh percakapan'));
+    var u = el('div', 'ai-msg user');
+    u.appendChild(el('div', 'ai-bubble', 'Kenapa jawabanku salah?'));
+    sample.appendChild(u);
+    var a = el('div', 'ai-msg');
+    var ab = el('div', 'ai-bubble');
+    ab.appendChild(el('span', 'ai-badge', 'Contoh'));
+    ab.appendChild(document.createTextNode(
+      'Jawabanmu belum tepat karena ada satu langkah yang terlewat. Buka "Tampilkan detail" untuk melihat langkahnya.'));
+    a.appendChild(ab);
+    sample.appendChild(a);
+    wrap.appendChild(sample);
+    return wrap;
+  }
+
+  function aiMessageNode(m) {
+    var row = el('div', 'ai-msg' + (m.role === 'user' ? ' user' : ''));
+    if (m.role === 'user') {
+      row.appendChild(el('div', 'ai-bubble', String(m.text || '')));
+      return row;
+    }
+    var col = el('div', 'ai-msg-col');
+    var bubble = el('div', 'ai-bubble');
+    if (m.sample) bubble.appendChild(el('span', 'ai-badge', 'Contoh'));
+    bubble.appendChild(document.createTextNode(String(m.text || '')));
+    col.appendChild(bubble);
+
+    if (m.detail) {
+      var detail = el('div', 'ai-detail', String(m.detail));
+      detail.hidden = true;
+      var toggle = el('button', 'ai-detail-btn', 'Tampilkan detail');
+      toggle.type = 'button';
+      toggle.setAttribute('aria-expanded', 'false');
+      toggle.addEventListener('click', function () {
+        detail.hidden = !detail.hidden;
+        toggle.textContent = detail.hidden ? 'Tampilkan detail' : 'Sembunyikan detail';
+        toggle.setAttribute('aria-expanded', detail.hidden ? 'false' : 'true');
+      });
+      col.appendChild(toggle);
+      col.appendChild(detail);
+    }
+    if (Array.isArray(m.practice) && m.practice.length) {
+      col.appendChild(aiPracticeNode(m.practice));
+      row.classList.add('wide');
+    }
+    row.appendChild(col);
+    return row;
+  }
+
+  function aiTypingNode() {
+    var row = el('div', 'ai-msg');
+    var bubble = el('div', 'ai-bubble ai-typing');
+    bubble.setAttribute('aria-label', 'Tanya AI sedang menulis');
+    bubble.innerHTML = '<span></span><span></span><span></span>';
+    row.appendChild(bubble);
+    return row;
+  }
+
+  function aiErrorNode() {
+    var box = el('div', 'ai-error');
+    box.setAttribute('role', 'alert');
+    box.appendChild(el('div', 'text-small', AI_STATE.error));
+    if (AI_STATE.last) {
+      var retry = el('button', 'btn-secondary', 'Coba lagi');
+      retry.type = 'button';
+      retry.addEventListener('click', aiRetryLast);
+      box.appendChild(retry);
+    }
+    return box;
+  }
+
+  function aiPracticeNode(list) {
+    var wrap = el('div', 'ai-practice');
+    list.forEach(function (q, i) {
+      var card = el('div', 'ai-practice-q');
+      card.appendChild(el('div', 'ai-practice-num', 'Soal ' + (i + 1)));
+      card.appendChild(el('p', 'ai-practice-prompt', q.prompt));
+      var opts = el('ul', 'ai-practice-opts');
+      (q.options || []).forEach(function (o) {
+        var li = el('li');
+        li.appendChild(el('b', '', o.letter));
+        li.appendChild(el('span', '', o.text));
+        opts.appendChild(li);
+      });
+      card.appendChild(opts);
+
+      var reveal = el('button', 'btn-secondary ai-reveal', 'Tampilkan jawaban');
+      reveal.type = 'button';
+      reveal.setAttribute('aria-expanded', 'false');
+      var answer = el('div', 'ai-practice-answer');
+      answer.hidden = true;
+      var key = el('div', 'ai-answer-line');
+      key.appendChild(el('span', 'k', 'Jawaban benar'));
+      key.appendChild(el('span', 'v', aiOptionText(q, q.answer)));
+      answer.appendChild(key);
+      answer.appendChild(el('div', 's ai-answer-exp', q.explanation));
+      reveal.addEventListener('click', function () {
+        answer.hidden = !answer.hidden;
+        reveal.textContent = answer.hidden ? 'Tampilkan jawaban' : 'Sembunyikan jawaban';
+        reveal.setAttribute('aria-expanded', answer.hidden ? 'false' : 'true');
+      });
+      card.appendChild(reveal);
+      card.appendChild(answer);
+      wrap.appendChild(card);
+    });
+    return wrap;
+  }
+
+  function aiOptionText(question, letter) {
+    var options = (question && question.options) || [];
+    for (var i = 0; i < options.length; i++) {
+      if (options[i].letter === letter) return letter + '. ' + options[i].text;
+    }
+    return letter || '';
+  }
+
+  function aiPaintContext() {
+    var slot = document.getElementById('ai-context');
+    if (!slot || !AI_STATE) return;
+    slot.innerHTML = '';
+    var ctx = AI_STATE.chat && AI_STATE.chat.context;
+    var q = ctx && ctx.question;
+    if (!q) return;
+
+    var card = el('div', 'ai-context');
+    var top = el('div', 'ai-context-top');
+    top.appendChild(el('span', 'tag', q.topic));
+    if (ctx.attempt) top.appendChild(el('span', 's', 'Soal dari hasil try out'));
+    card.appendChild(top);
+    card.appendChild(el('p', 'ai-context-q', q.prompt));
+
+    if (ctx.attempt) {
+      var answers = el('div', 'ai-context-answers');
+      var given = el('div', 'ai-answer-line');
+      given.appendChild(el('span', 'k', 'Jawabanmu'));
+      given.appendChild(el('span', 'v', ctx.given ? aiOptionText(q, ctx.given) : 'kosong'));
+      answers.appendChild(given);
+      if (ctx.answer) {
+        var key = el('div', 'ai-answer-line');
+        key.appendChild(el('span', 'k', 'Jawaban benar'));
+        key.appendChild(el('span', 'v', aiOptionText(q, ctx.answer)));
+        answers.appendChild(key);
+      }
+      card.appendChild(answers);
+    }
+    slot.appendChild(card);
+  }
+
+  function aiPaintChips() {
+    var slot = document.getElementById('ai-chips-slot');
+    if (!slot || !AI_STATE) return;
+    slot.innerHTML = '';
+    var row = el('div', 'ai-chips');
+    var outOfQuota = !!(AI_STATE.status && AI_STATE.status.member !== false &&
+      AI_STATE.status.remaining <= 0);
+    AI_CHIPS.forEach(function (chip) {
+      var b = el('button', 'ai-chip', chip.label);
+      b.type = 'button';
+      b.setAttribute('data-chip', chip.intent);
+      b.disabled = AI_STATE.sending || outOfQuota;
+      b.addEventListener('click', function () {
+        if (chip.intent === 'practice') { aiShowPracticePicker(); return; }
+        if (chip.intent === 'study') { aiStudyPlan(); return; }
+        aiSend(chip.message, chip.intent);
+      });
+      row.appendChild(b);
+    });
+    slot.appendChild(row);
+  }
+
+  function aiShowPracticePicker() {
+    var slot = document.getElementById('ai-chips-slot');
+    if (!slot || !AI_STATE || !AI_STATE.chat) return;
+    var all = (AI_STATE.status && AI_STATE.status.topics) || {};
+    var ctx = AI_STATE.chat.context || {};
+    var mode = (ctx.question && ctx.question.mode) === 'cpns' ? 'cpns' : 'utbk';
+    var topics = all[mode] || all.utbk || ['Penalaran Umum'];
+
+    slot.innerHTML = '';
+    var form = el('form', 'ai-picker');
+    var label = el('label', 's', 'Topik latihan');
+    label.setAttribute('for', 'ai-topic');
+    var select = el('select', 'field ai-topic');
+    select.id = 'ai-topic';
+    topics.forEach(function (topic) {
+      var option = el('option', '', topic);
+      option.value = topic;
+      select.appendChild(option);
+    });
+    if (ctx.question && topics.indexOf(ctx.question.topic) !== -1) select.value = ctx.question.topic;
+
+    var row = el('div', 'ai-picker-row');
+    row.appendChild(select);
+    var go = el('button', 'btn-primary', 'Buat 3 soal');
+    go.type = 'submit';
+    row.appendChild(go);
+    form.appendChild(label);
+    form.appendChild(row);
+
+    var cancel = el('button', 'btn-secondary ai-picker-cancel', 'Batal');
+    cancel.type = 'button';
+    cancel.addEventListener('click', aiPaintChips);
+    form.appendChild(cancel);
+
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      var topic = select.value;
+      aiPaintChips();
+      aiPractice(topic);
+    });
+    slot.appendChild(form);
+    select.focus();
+  }
+
+  // ── Saved explanations ──────────────────────────────────────────────────
+  function renderAiHistory() {
+    AI_STATE = null;
+    view.innerHTML = '<div class="ai-screen"><div class="app ai-app">' +
+      '<div class="bar ai-bar">' +
+        '<button class="btn-secondary ai-back" id="ai-history-back" type="button" aria-label="Kembali ke beranda">' + BACK_SVG + '</button>' +
+        '<div class="ai-bar-text"><div class="ttl">Penjelasan tersimpan</div><div class="s">Percakapan Tanya AI milikmu</div></div>' +
+      '</div>' +
+      '<div id="ai-history"></div>' +
+      '</div></div>';
+    document.getElementById('ai-history-back').addEventListener('click', function () { navigate('/'); });
+    aiLoadHistory();
+  }
+
+  function aiLoadHistory() {
+    var box = document.getElementById('ai-history');
+    if (!box) return;
+    box.innerHTML = '';
+    var skeleton = el('ul', 'list');
+    for (var i = 0; i < 3; i++) {
+      var row = el('li', 'list-row ai-history-row');
+      row.innerHTML = '<span class="skeleton" style="width:36px;height:36px;border-radius:10px;flex:none"></span>' +
+        '<span style="flex:1"><span class="skeleton" style="display:block;height:14px;width:60%;margin-bottom:6px"></span>' +
+        '<span class="skeleton" style="display:block;height:12px;width:35%"></span></span>';
+      skeleton.appendChild(row);
+    }
+    box.appendChild(skeleton);
+
+    api('/api/ai/chats').then(function (data) {
+      var target = document.getElementById('ai-history');
+      if (!target) return;
+      target.innerHTML = '';
+      var chats = (data && data.chats) || [];
+      if (!chats.length) {
+        var empty = el('div', 'state-empty');
+        empty.appendChild(el('div', 'text-body font-medium', 'Belum ada percakapan tersimpan.'));
+        empty.appendChild(el('div', 'text-small text-muted',
+          'Tanya AI dari beranda atau dari pembahasan soal, lalu percakapannya muncul di sini.'));
+        var go = el('a', 'btn-primary', 'Tanya AI');
+        go.href = '/tanya-ai';
+        empty.appendChild(go);
+        target.appendChild(empty);
+        return;
+      }
+      var list = el('ul', 'list ai-history-list');
+      chats.forEach(function (c) {
+        var li = el('li', 'list-row ai-history-row');
+        li.setAttribute('role', 'link');
+        li.setAttribute('tabindex', '0');
+        var icon = el('span', 'ai-history-icon');
+        icon.innerHTML = SPARK_SVG;
+        li.appendChild(icon);
+        var main = el('div', 'ai-history-main');
+        main.appendChild(el('div', 'ai-history-title', c.title || 'Percakapan'));
+        main.appendChild(el('div', 's', (c.label || 'Pertanyaan umum') + ' · ' + (c.message_count || 0) + ' pesan'));
+        li.appendChild(main);
+        var chev = el('span', 'ai-history-chev');
+        chev.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>';
+        li.appendChild(chev);
+        function open() { navigate('/tanya-ai?chat=' + c.id); }
+        li.addEventListener('click', open);
+        li.addEventListener('keydown', function (e) {
+          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); }
+        });
+        list.appendChild(li);
+      });
+      target.appendChild(list);
+    }).catch(function () {
+      var target = document.getElementById('ai-history');
+      if (!target) return;
+      target.innerHTML = '';
+      var err = el('div', 'state-error');
+      err.appendChild(el('div', 'text-body font-medium', 'Riwayat tidak bisa dimuat.'));
+      err.appendChild(el('div', 'text-small text-muted', 'Tanya AI tetap bisa dibuka dari beranda.'));
+      var retry = el('button', 'btn-secondary', 'Coba lagi');
+      retry.type = 'button';
+      retry.addEventListener('click', aiLoadHistory);
+      err.appendChild(retry);
+      target.appendChild(err);
+    });
   }
 
   // ── Review (Pembahasan) ─────────────────────────────────────────────────

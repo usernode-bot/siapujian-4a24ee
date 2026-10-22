@@ -22,6 +22,15 @@ the time used, a bar for each subtest and the coloured answer sheet.
 "Lihat pembahasan" opens every question with your answer, the right answer and
 a short explanation.
 
+**Tanya AI** helps you understand a question. A floating button on the
+dashboard opens a chat, and every question in Review mode has a "Tanya AI"
+button that attaches the question, your answer and the correct answer.
+Quick chips explain the answer, give a shortcut, generate three practice
+questions with hidden answers, or build a 7-day study plan from your weakest
+subtopics. Each person gets 10 questions a day, and past conversations are
+kept in "Penjelasan tersimpan".
+
+
 **Progres** charts the last ten UTBK scores against the 600 line, marks the
 weakest subtest from every question answered, and lists every finished try out
 and Latihan harian. The dashboard's **Latihan harian** card offers five UTBK

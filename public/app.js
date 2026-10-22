@@ -1,7 +1,8 @@
 'use strict';
 
-// SiapUjian's single-page app: the dashboard (/), the two CAT-style exam
-// screens (/ujian/utbk, /ujian/cpns) and the results screen (/hasil/:id).
+// SiapUjian's single-page app: the dashboard (/), the CAT-style exam screens
+// (/ujian/utbk, /ujian/cpns, /ujian/harian), the results screen (/hasil/:id),
+// its review (/hasil/:id/pembahasan) and Progres (/progres).
 
 (function () {
   var view = document.getElementById('view');
@@ -15,8 +16,9 @@
   var HOME_HTML = view.innerHTML;
 
   var MODE_INFO = {
-    utbk: { name: 'Try Out UTBK PTN', count: 3, duration: '30 menit', passing: 'Passing grade 600' },
+    utbk: { name: 'Try Out UTBK PTN', count: 20, duration: '40 menit', passing: 'Passing grade 600' },
     cpns: { name: 'Try Out CAT CPNS', count: 3, duration: '45 menit', passing: 'Passing grade 10' },
+    daily: { name: 'Latihan harian', count: 5, duration: '10 menit', passing: '' },
   };
 
   var MONTHS = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
@@ -93,6 +95,7 @@
   }
 
   function scoreLabel(mode, score, max) {
+    if (mode === 'daily') return score + ' dari ' + max + ' benar';
     return mode === 'cpns' ? 'Skor ' + score + ' / ' + max : 'Skor ' + score;
   }
 
@@ -159,8 +162,11 @@
     stopTimer();
     var p = location.pathname.replace(/\/+$/, '') || '/';
     if (p === '/') return renderHome();
-    var m = p.match(/^\/ujian\/(utbk|cpns)$/);
-    if (m) return renderQuiz(m[1]);
+    if (p === '/progres') return renderProgress();
+    var m = p.match(/^\/ujian\/(utbk|cpns|harian)$/);
+    if (m) return renderQuiz(m[1] === 'harian' ? 'daily' : m[1]);
+    m = p.match(/^\/hasil\/(\d+)\/pembahasan$/);
+    if (m) return renderReview(m[1]);
     m = p.match(/^\/hasil\/(\d+)$/);
     if (m) return renderResults(m[1]);
     if (p === '/tanya-ai/riwayat') return renderAiHistory();
@@ -188,14 +194,94 @@
       fill('passing', info.passing);
       var rail = card.querySelector('[data-meta="rail"]');
       rail.innerHTML = '';
+      rail.classList.toggle('dense', info.count > 10);
       for (var i = 1; i <= info.count; i++) rail.appendChild(el('i', '', String(i)));
     });
 
     var note = document.querySelector('[data-usernode-demo-note]');
     if (note) note.hidden = !DEMO;
 
+    var dailyRetry = document.getElementById('daily-retry');
+    if (dailyRetry) dailyRetry.addEventListener('click', loadSummary);
     loadProfile();
+    loadSummary();
     loadResults();
+  }
+
+  // The Latihan harian card, the streak chip and the target gap, all from
+  // /api/summary (with the profile for the target score).
+  function loadSummary() {
+    var streakEl = document.getElementById('streak-label');
+    var dailyBtn = document.getElementById('daily-btn');
+    var dailyScore = document.getElementById('daily-score');
+    var gapEl = document.getElementById('profile-gap');
+    if (!streakEl || !dailyBtn) return;
+    function showRetry(show) {
+      var chip = document.getElementById('streak-chip');
+      var errLine = document.getElementById('daily-error');
+      if (chip) chip.hidden = show;
+      if (errLine) errLine.hidden = !show;
+    }
+    function fail() {
+      if (!document.getElementById('streak-label')) return;
+      showRetry(true);
+    }
+    showRetry(false);
+    streakEl.textContent = 'Memuat...';
+
+    Promise.all([api('/api/me'), api('/api/summary' + demoQuery)]).then(function (r) {
+      if (!document.getElementById('streak-label')) return;
+      var me = r[0];
+      var s = r[1] || {};
+      var st = s.streak || { days: 0, doneToday: false };
+      streakEl.textContent = st.days > 0 ? 'Runtutan ' + st.days + ' hari' : 'Mulai runtutanmu hari ini';
+      if (s.daily) {
+        dailyBtn.textContent = 'Lihat hasil hari ini';
+        dailyBtn.setAttribute('href', '/hasil/' + s.daily.id);
+        if (dailyScore) {
+          dailyScore.textContent = 'Skor hari ini: ' + s.daily.score + ' dari 5 benar.';
+          dailyScore.hidden = false;
+        }
+      } else {
+        dailyBtn.textContent = 'Mulai 5 soal';
+        dailyBtn.setAttribute('href', '/ujian/harian');
+        if (dailyScore) dailyScore.hidden = true;
+      }
+      if (!gapEl) return;
+      if (me.target_exam === 'cpns') {
+        gapEl.hidden = true;
+        return;
+      }
+      var target = me.target_score || 600;
+      gapEl.hidden = false;
+      var line = gapEl.querySelector('[data-gap="line"]');
+      var fill = gapEl.querySelector('[data-gap="fill"]');
+      var tick = gapEl.querySelector('[data-gap="tick"]');
+      tick.style.left = Math.max(0, Math.min(100, target / 10)) + '%';
+      if (!s.latestUtbk) {
+        fill.style.width = '0%';
+        line.textContent = 'Selesaikan try out UTBK untuk melihat jarak ke target.';
+      } else {
+        var sc = s.latestUtbk.score;
+        fill.style.width = Math.max(0, Math.min(100, sc / 10)) + '%';
+        line.innerHTML = '';
+        if (sc >= target) {
+          line.appendChild(document.createTextNode('Skor terakhir '));
+          line.appendChild(el('strong', '', String(sc)));
+          line.appendChild(document.createTextNode('. Sudah melewati target '));
+          line.appendChild(el('strong', '', String(target)));
+          line.appendChild(document.createTextNode('.'));
+        } else {
+          line.appendChild(document.createTextNode('Skor terakhir '));
+          line.appendChild(el('strong', '', String(sc)));
+          line.appendChild(document.createTextNode('. Kurang '));
+          line.appendChild(el('strong', '', String(target - sc)));
+          line.appendChild(document.createTextNode(' poin dari target '));
+          line.appendChild(el('strong', '', String(target)));
+          line.appendChild(document.createTextNode('.'));
+        }
+      }
+    }).catch(fail);
   }
 
   function loadProfile() {
@@ -233,7 +319,10 @@
     api('/api/me').then(function (me) {
       nameEl.textContent = me.name || 'Tamu';
       initialEl.textContent = (me.name || 'T').trim().charAt(0).toUpperCase();
-      paintRole(me.target_exam === 'cpns' ? 'cpns' : 'utbk', me.target_goal);
+      var goal = me.target_exam === 'cpns'
+        ? me.target_goal
+        : [me.target_major, me.target_campus].filter(Boolean).join(', ') || null;
+      paintRole(me.target_exam === 'cpns' ? 'cpns' : 'utbk', goal);
     }).catch(function () {
       nameEl.textContent = 'Tamu';
       initialEl.textContent = 'T';
@@ -261,18 +350,36 @@
           '<button type="button" class="btn-secondary" data-target="utbk" aria-pressed="false">UTBK PTN</button>' +
           '<button type="button" class="btn-secondary" data-target="cpns" aria-pressed="false">CAT CPNS</button>' +
         '</div>' +
-        '<label class="s" for="f-goal">Tujuan (opsional)</label>' +
-        '<input class="field" id="f-goal" maxlength="80" placeholder="e.g. Kedokteran UI">' +
+        '<div class="utbk-fields">' +
+          '<label class="s" for="f-campus">Kampus tujuan (opsional)</label>' +
+          '<input class="field" id="f-campus" maxlength="80" placeholder="e.g. Universitas Gadjah Mada">' +
+          '<label class="s" for="f-major">Jurusan tujuan (opsional)</label>' +
+          '<input class="field" id="f-major" maxlength="80" placeholder="e.g. Teknik Informatika">' +
+          '<label class="s" for="f-score">Skor target (opsional)</label>' +
+          '<input class="field" id="f-score" inputmode="numeric" maxlength="4" placeholder="e.g. 700">' +
+        '</div>' +
+        '<div class="cpns-fields">' +
+          '<label class="s" for="f-goal">Tujuan (opsional)</label>' +
+          '<input class="field" id="f-goal" maxlength="80" placeholder="e.g. Analyst Kebijakan">' +
+        '</div>' +
         '<div class="s" id="profile-error" role="alert" hidden></div>';
       card.replaceWith(form);
 
       var name = form.querySelector('#f-name');
       var goal = form.querySelector('#f-goal');
+      var campus = form.querySelector('#f-campus');
+      var major = form.querySelector('#f-major');
+      var targetScore = form.querySelector('#f-score');
       name.value = me.name && me.name !== 'Tamu' ? me.name : '';
       goal.value = me.target_goal || '';
+      campus.value = me.target_campus || '';
+      major.value = me.target_major || '';
+      targetScore.value = me.target_score ? String(me.target_score) : '';
       var target = me.target_exam === 'cpns' ? 'cpns' : 'utbk';
 
       function paintTarget() {
+        form.querySelector('.utbk-fields').hidden = target !== 'utbk';
+        form.querySelector('.cpns-fields').hidden = target !== 'cpns';
         Array.prototype.forEach.call(form.querySelectorAll('[data-target]'), function (b) {
           var on = b.getAttribute('data-target') === target;
           b.setAttribute('aria-pressed', on ? 'true' : 'false');
@@ -303,15 +410,27 @@
           name.focus();
           return;
         }
+        var scoreVal = targetScore.value.trim();
+        if (scoreVal && (!/^\d+$/.test(scoreVal) || Number(scoreVal) < 1 || Number(scoreVal) > 1000)) {
+          err.textContent = 'Skor target harus angka 1 sampai 1000.';
+          err.hidden = false;
+          targetScore.focus();
+          return;
+        }
         saveBtn.disabled = true;
         api('/api/me', {
           method: 'PUT',
-          body: JSON.stringify({ name: name.value, target_exam: target, target_goal: goal.value }),
+          body: JSON.stringify({
+            name: name.value, target_exam: target, target_goal: goal.value,
+            target_campus: campus.value, target_major: major.value, target_score: scoreVal || null,
+          }),
         }).then(function () {
           renderHome();
-        }).catch(function () {
+        }).catch(function (e) {
           saveBtn.disabled = false;
-          err.textContent = 'Profil tidak bisa disimpan. Periksa koneksimu, lalu coba Simpan lagi.';
+          err.textContent = e && e.message === 'invalid_target_score'
+            ? 'Skor target harus angka 1 sampai 1000.'
+            : 'Profil tidak bisa disimpan. Periksa koneksimu, lalu coba Simpan lagi.';
           err.hidden = false;
         });
       });
@@ -369,32 +488,44 @@
         state2.appendChild(box);
         return;
       }
-      var rowTpl = document.getElementById('result-row-tpl');
-      attempts.forEach(function (a) {
-        var row = rowTpl.content.firstElementChild.cloneNode(true);
-        row.setAttribute('data-attempt', a.id);
-        row.setAttribute('role', 'link');
-        row.setAttribute('tabindex', '0');
-        row.setAttribute('style', 'cursor:pointer');
-        var icon = row.querySelector('.result-icon');
-        if (icon) icon.classList.toggle('cpns', a.mode === 'cpns');
-        row.querySelector('[data-row="mode"]').textContent = MODE_INFO[a.mode] ? MODE_INFO[a.mode].name : a.mode;
-        row.querySelector('[data-row="when"]').textContent = whenLabel(new Date(a.created_at));
-        row.querySelector('[data-row="score"]').textContent = scoreLabel(a.mode, a.score, a.max_score);
-        var verdict = row.querySelector('[data-row="verdict"]');
-        verdict.classList.add(a.passed ? 'ok' : 'no');
-        row.querySelector('[data-row="verdict-label"]').textContent = a.passed ? 'Lulus' : 'Belum lulus';
-        var verdictPath = row.querySelector('[data-row="verdict-path"]');
-        if (verdictPath) verdictPath.setAttribute('d', a.passed ? 'M20 6 9 17l-5-5' : 'M18 6 6 18M6 6l12 12');
-        function open() { navigate('/hasil/' + a.id); }
-        row.addEventListener('click', open);
-        row.addEventListener('keydown', function (e) {
-          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); }
-        });
-        list2.appendChild(row);
+      attempts.slice(0, 3).forEach(function (a) {
+        list2.appendChild(resultRow(a));
       });
       list2.hidden = false;
     }).catch(showError);
+  }
+
+  // One finished result, as the dashboard, Progres and the results list show it.
+  function resultRow(a) {
+    var rowTpl = document.getElementById('result-row-tpl');
+    var row = rowTpl.content.firstElementChild.cloneNode(true);
+    row.setAttribute('data-attempt', a.id);
+    row.setAttribute('role', 'link');
+    row.setAttribute('tabindex', '0');
+    row.setAttribute('style', 'cursor:pointer');
+    var icon = row.querySelector('.result-icon');
+    if (icon) {
+      icon.classList.toggle('cpns', a.mode === 'cpns');
+      icon.classList.toggle('daily', a.mode === 'daily');
+    }
+    row.querySelector('[data-row="mode"]').textContent = MODE_INFO[a.mode] ? MODE_INFO[a.mode].name : a.mode;
+    row.querySelector('[data-row="when"]').textContent = whenLabel(new Date(a.created_at));
+    row.querySelector('[data-row="score"]').textContent = scoreLabel(a.mode, a.score, a.max_score);
+    var verdict = row.querySelector('[data-row="verdict"]');
+    if (a.mode === 'daily') {
+      verdict.hidden = true;
+    } else {
+      verdict.classList.add(a.passed ? 'ok' : 'no');
+      row.querySelector('[data-row="verdict-label"]').textContent = a.passed ? 'Lulus' : 'Belum lulus';
+      var verdictPath = row.querySelector('[data-row="verdict-path"]');
+      if (verdictPath) verdictPath.setAttribute('d', a.passed ? 'M20 6 9 17l-5-5' : 'M18 6 6 18M6 6l12 12');
+    }
+    function open() { navigate('/hasil/' + a.id); }
+    row.addEventListener('click', open);
+    row.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); }
+    });
+    return row;
   }
 
   // ── Quiz ────────────────────────────────────────────────────────────────
@@ -412,17 +543,26 @@
   var SPARK_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/><path d="M20 3v4"/><path d="M22 5h-4"/><path d="M4 17v2"/><path d="M5 18H3"/></svg>';
   var SEND_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5"/><path d="m5 12 7-7 7 7"/></svg>';
 
+  var FLAG_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 22V4"/><path d="M4 4h12l-2 4 2 4H4"/></svg>';
+
   function quizShell(examName, subtitle, timerText) {
     return '<div data-spec-screen="2"><div class="app">' +
       '<div class="bar"><button class="btn-secondary" id="quiz-back" type="button" aria-label="Keluar dari ujian">' + BACK_SVG + '</button>' +
       '<div><div class="ttl">' + examName + '</div><div class="s" id="quiz-progress">' + subtitle + '</div></div>' +
       '<div class="timer" aria-live="off">' + CLOCK_SVG + '<span id="quiz-timer">' + timerText + '</span></div></div>' +
-      '<div class="grid"><div class="card" id="question-card">' +
-      '<span class="tag" id="q-topic"></span><p class="q" id="q-prompt"></p><div id="q-options"></div>' +
-      '</div><div class="rail"><span class="s">Soal</span><div id="rail-tiles" style="display:contents"></div><span class="s" id="rail-count" style="margin-top:6px;text-align:center"></span></div></div>' +
+      '<div class="card" id="question-card">' +
+      '<div class="qhead"><span class="tag" id="q-topic"></span>' +
+      '<button class="btn-secondary flag" id="q-flag" type="button" aria-pressed="false">' + FLAG_SVG + 'Ragu-ragu</button></div>' +
+      '<p class="passage" id="q-passage" hidden></p>' +
+      '<p class="q" id="q-prompt"></p><div id="q-options"></div>' +
+      '</div>' +
       '<div class="foot"><button class="btn-secondary" id="prev-q" type="button">Sebelumnya</button>' +
       '<button class="btn-primary" id="next-q" type="button">Soal berikutnya</button></div>' +
-      '<div class="s" style="text-align:center;margin-top:12px">Ujian selesai otomatis saat waktu habis.</div>' +
+      '<div class="sheet card" id="sheet" aria-label="Lembar jawaban">' +
+      '<div class="sheet-head"><strong>Lembar jawaban</strong><span class="s" id="rail-count"></span></div>' +
+      '<div class="legend"><span><i class="sw f"></i>Dijawab</span><span><i class="sw r"></i>Ragu-ragu</span><span><i class="sw"></i>Belum dijawab</span></div>' +
+      '<div id="sheet-groups"></div></div>' +
+      '<div class="s note">Ujian selesai otomatis saat waktu habis.</div>' +
       '<div class="s" id="quiz-error" role="alert" hidden style="text-align:center;margin-top:12px"></div>' +
       '</div></div>';
   }
@@ -457,9 +597,11 @@
     examState = {
       idx: 0,
       answers: {},
+      flags: {},
       finished: false,
       submitting: false,
       timedOut: false,
+      startedAt: now().getTime(),
       endAt: now().getTime() + exam.durationMin * 60000,
       interval: null,
     };
@@ -468,15 +610,24 @@
       progress: document.getElementById('quiz-progress'),
       timer: document.getElementById('quiz-timer'),
       topic: document.getElementById('q-topic'),
+      passage: document.getElementById('q-passage'),
       prompt: document.getElementById('q-prompt'),
       options: document.getElementById('q-options'),
-      tiles: document.getElementById('rail-tiles'),
+      flag: document.getElementById('q-flag'),
+      groups: document.getElementById('sheet-groups'),
       count: document.getElementById('rail-count'),
       prev: document.getElementById('prev-q'),
       next: document.getElementById('next-q'),
       error: document.getElementById('quiz-error'),
     };
     document.getElementById('quiz-back').addEventListener('click', leaveQuiz);
+    examState.el.flag.addEventListener('click', function () {
+      if (!examState || examState.finished) return;
+      var id = EXAM.questions[examState.idx].id;
+      if (examState.flags[id]) delete examState.flags[id];
+      else examState.flags[id] = true;
+      paintQuestion();
+    });
     examState.el.prev.addEventListener('click', function () { goTo(examState.idx - 1); });
     examState.el.next.addEventListener('click', function () {
       if (examState.idx < EXAM.questions.length - 1) goTo(examState.idx + 1);
@@ -517,6 +668,16 @@
     var e = examState.el;
     e.progress.textContent = 'Soal ' + (examState.idx + 1) + ' dari ' + EXAM.questions.length;
     e.topic.textContent = q.topic;
+    if (q.passage) {
+      e.passage.textContent = q.passage;
+      e.passage.hidden = false;
+    } else {
+      e.passage.textContent = '';
+      e.passage.hidden = true;
+    }
+    var flagged = !!examState.flags[q.id];
+    e.flag.setAttribute('aria-pressed', flagged ? 'true' : 'false');
+    e.flag.classList.toggle('on', flagged);
     e.prompt.textContent = q.prompt;
     e.options.innerHTML = '';
     q.options.forEach(function (o) {
@@ -534,21 +695,39 @@
       e.options.appendChild(b);
     });
 
-    e.tiles.innerHTML = '';
+    // The answer sheet, grouped by subtest (by consecutive topic, so an old
+    // three-question CPNS try out still groups sensibly).
+    e.groups.innerHTML = '';
+    var group = null;
+    // Latihan harian draws one row of five tiles, with no subtest headings:
+    // five one-tile groups would push the sheet far down the screen.
+    var singleGroup = EXAM.mode === 'daily';
     EXAM.questions.forEach(function (qq, i) {
+      if (!group || (!singleGroup && group.name !== qq.topic)) {
+        group = { name: qq.topic, ids: [], box: null };
+        var g = el('div', 'grp');
+        if (!singleGroup) g.appendChild(el('div', 'grp-name', qq.topic));
+        var tiles = el('div', 'tiles');
+        g.appendChild(tiles);
+        group.el = tiles;
+        e.groups.appendChild(g);
+      }
       var answered = !!examState.answers[qq.id];
-      var t = el('i', 'rail-tile' + (answered ? ' f' : '') + (i === examState.idx ? ' c' : ''), String(i + 1));
+      var isFlag = !!examState.flags[qq.id];
+      var cls = 'rail-tile' + (answered ? ' f' : '') + (isFlag ? ' r' : '') + (i === examState.idx ? ' c' : '');
+      var t = el('i', cls, String(i + 1));
       t.setAttribute('role', 'button');
       t.setAttribute('tabindex', '0');
-      t.setAttribute('aria-label', 'Soal ' + (i + 1) + (answered ? ', sudah dijawab' : ', belum dijawab'));
+      t.setAttribute('aria-label', 'Soal ' + (i + 1) + (answered ? ', sudah dijawab' : ', belum dijawab') + (isFlag ? ', ragu-ragu' : ''));
       t.addEventListener('click', function () { goTo(i); });
       t.addEventListener('keydown', function (ev) {
         if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); goTo(i); }
       });
-      e.tiles.appendChild(t);
+      group.el.appendChild(t);
     });
     var answeredCount = EXAM.questions.filter(function (qq) { return !!examState.answers[qq.id]; }).length;
     e.count.textContent = answeredCount + ' dari ' + EXAM.questions.length + ' dijawab';
+    e.count.setAttribute('data-answered', String(answeredCount));
 
     e.prev.disabled = examState.idx === 0;
     e.next.textContent = examState.idx === EXAM.questions.length - 1 ? 'Selesai ujian' : 'Soal berikutnya';
@@ -558,8 +737,12 @@
     if (!examState || examState.finished || examState.submitting) return;
     if (!timedOut) {
       var unanswered = EXAM.questions.filter(function (q) { return !examState.answers[q.id]; }).length;
-      if (unanswered > 0) {
-        confirmDialog(unanswered + ' soal belum dijawab. Selesai sekarang?', 'Selesai').then(function (ok) {
+      var flagged = EXAM.questions.filter(function (q) { return examState.flags[q.id]; }).length;
+      if (unanswered > 0 || flagged > 0) {
+        var parts = [];
+        if (unanswered > 0) parts.push(unanswered + ' soal belum dijawab');
+        if (flagged > 0) parts.push(flagged + ' ditandai ragu-ragu');
+        confirmDialog(parts.join(' dan ') + '. Selesai sekarang?', 'Selesai').then(function (ok) {
           if (ok) submitExam(timedOut);
         });
         return;
@@ -580,9 +763,16 @@
     e.next.disabled = true;
     e.next.textContent = 'Mengirim...';
     e.error.hidden = true;
+    var payload = {
+      mode: EXAM.mode,
+      answers: examState.answers,
+      timedOut: timedOut,
+      durationSec: Math.round((now().getTime() - examState.startedAt) / 1000),
+    };
+    if (EXAM.mode === 'daily' && EXAM.day) payload.day = EXAM.day;
     api('/api/attempts' + demoQuery, {
       method: 'POST',
-      body: JSON.stringify({ mode: EXAM.mode, answers: examState.answers, timedOut: timedOut }),
+      body: JSON.stringify(payload),
     }).then(function (r) {
       examState.finished = true;
       navigate('/hasil/' + r.id);
@@ -630,35 +820,98 @@
     return letter;
   }
 
+  function durationText(sec) {
+    var s = Math.max(0, Math.round(sec));
+    var h = Math.floor(s / 3600);
+    var m = Math.floor((s % 3600) / 60);
+    var r = s % 60;
+    return (h ? h + ':' + pad(m) : pad(m)) + ':' + pad(r);
+  }
+
   function paintResults(data) {
     var a = data.attempt;
     var exam = data.exam;
+    var bd = data.breakdown || { correct: 0, wrong: 0, empty: 0, subtests: [] };
+    var isDaily = exam.mode === 'daily';
+    var isUtbk = exam.mode === 'utbk';
+    var showBars = isUtbk && !data.legacy && bd.subtests && bd.subtests.length;
     var wrap = document.createElement('div');
+    var passHtml = isDaily ? '' :
+      '<div class="pass-line" data-r="pass"></div>';
     wrap.innerHTML = '<div data-spec-screen="3"><div class="app">' +
       '<div class="bar"><button class="btn-secondary" id="results-back" type="button" aria-label="Kembali ke beranda">' + BACK_SVG + '</button><div><div class="ttl">Hasil try out</div><div class="s" data-r="exam"></div></div></div>' +
-      '<div class="score-head"><div class="score-num"><span class="score-label">Skor</span> <span data-r="score"></span> <span class="score-label">dari ' + exam.maxScore + '</span></div>' +
-      '<div class="pass-line" data-r="pass"></div>' +
+      '<div class="score-head"><div class="score-num"><span class="score-label">' + (isDaily ? '' : 'Skor') + '</span> <span data-r="score"></span> <span class="score-label">' + (isDaily ? '' : 'dari ' + exam.maxScore) + '</span></div>' +
+      passHtml +
       '<div class="s" data-r="timed" hidden>Waktu habis</div></div>' +
-      '<div class="entries" id="entries"></div>' +
-      '<div class="actions"><a class="btn-primary" href="/" id="results-home">Kembali ke beranda</a><button class="btn-secondary" id="delete-result" type="button">Hapus hasil</button></div>' +
+      '<div class="card stats-card">' +
+      '<div class="stats"><div class="stat ok"><b data-r="correct">0</b><span class="s">Benar</span></div>' +
+      '<div class="stat no"><b data-r="wrong">0</b><span class="s">Salah</span></div>' +
+      '<div class="stat"><b data-r="empty">0</b><span class="s">Kosong</span></div></div>' +
+      '<div class="s time" data-r="duration" hidden>' + CLOCK_SVG + '<span></span></div>' +
+      '</div>' +
+      '<div class="card" id="bars-card" hidden><h3 class="h">Skor per subtes</h3><div class="bars" id="bars"></div>' +
+      '<div class="s legend">Garis putus-putus: passing grade ' + exam.passingGrade + '</div></div>' +
+      '<div class="card" id="sheet-card"><h3 class="h">Lembar jawaban</h3><div class="sheet" id="result-sheet"></div></div>' +
+      '<div class="actions">' +
+      '<a class="btn-primary" id="review-link" href="/hasil/' + a.id + '/pembahasan">Lihat pembahasan</a>' +
+      '<a class="btn-secondary" href="/">Kembali ke beranda</a>' +
+      '<button class="btn-secondary" id="delete-result" type="button">Hapus hasil</button></div>' +
       '<div class="s" id="delete-error" role="alert" hidden style="margin-top:8px"></div>' +
       '</div></div>';
 
     wrap.querySelector('[data-r="exam"]').textContent = exam.name;
-    wrap.querySelector('[data-r="score"]').textContent = String(a.score);
-    var pass = wrap.querySelector('[data-r="pass"]');
-    if (a.passed) {
-      pass.textContent = 'Passing grade ' + exam.passingGrade + ': Lulus';
-      pass.classList.add('ok');
-    } else {
-      pass.textContent = 'Passing grade ' + exam.passingGrade + ': Belum lulus, kurang ' + (exam.passingGrade - a.score);
-      pass.classList.add('no');
+    wrap.querySelector('[data-r="score"]').textContent =
+      isDaily ? bd.correct + ' dari ' + data.questions.length + ' benar' : String(a.score);
+    if (!isDaily) {
+      var pass = wrap.querySelector('[data-r="pass"]');
+      if (a.passed) {
+        pass.textContent = 'Passing grade ' + exam.passingGrade + ': Lulus';
+        pass.classList.add('ok');
+      } else {
+        pass.textContent = 'Passing grade ' + exam.passingGrade + ': Belum lulus, kurang ' + (exam.passingGrade - a.score);
+        pass.classList.add('no');
+      }
     }
     if (a.timed_out) wrap.querySelector('[data-r="timed"]').hidden = false;
+    wrap.querySelector('[data-r="correct"]').textContent = String(bd.correct);
+    wrap.querySelector('[data-r="wrong"]').textContent = String(bd.wrong);
+    wrap.querySelector('[data-r="empty"]').textContent = String(bd.empty);
+    if (a.duration_sec != null) {
+      var dur = wrap.querySelector('[data-r="duration"]');
+      dur.hidden = false;
+      dur.querySelector('span').textContent = 'Waktu dipakai ' + durationText(a.duration_sec) + ' dari ' + exam.durationMin + ':00';
+    }
 
-    var entries = wrap.querySelector('#entries');
+    if (showBars) {
+      var barsCard = wrap.querySelector('#bars-card');
+      barsCard.hidden = false;
+      var bars = wrap.querySelector('#bars');
+      bd.subtests.forEach(function (s) {
+        var row = el('div', 'brow');
+        var top = el('div', 'brow-top');
+        top.appendChild(el('span', '', s.name));
+        top.appendChild(el('b', '', String(s.score)));
+        row.appendChild(top);
+        var track = el('div', 'track');
+        var fill = el('span', 'fill');
+        fill.style.width = Math.max(0, Math.min(100, s.score / 10)) + '%';
+        track.appendChild(fill);
+        var mark = el('span', 'mark');
+        mark.style.left = Math.max(0, Math.min(100, exam.passingGrade / 10)) + '%';
+        track.appendChild(mark);
+        row.appendChild(track);
+        row.appendChild(el('div', 'sub', s.correct + ' dari ' + s.total + ' benar'));
+        bars.appendChild(row);
+      });
+    }
+
+    var sheet = wrap.querySelector('#result-sheet');
     data.questions.forEach(function (q, i) {
-      entries.appendChild(resultEntry(q, i, exam, a.id));
+      var tone = !q.given ? '' : q.type === 'tkp' ? 'ok' : q.given === q.answer ? 'ok' : 'no';
+      var t = el('a', 'qt ' + tone, String(i + 1));
+      t.href = '/hasil/' + a.id + '/pembahasan#q-' + (i + 1);
+      t.setAttribute('aria-label', 'Soal ' + (i + 1) + ', ' + (!q.given ? 'kosong' : tone === 'ok' ? 'benar' : 'salah'));
+      sheet.appendChild(t);
     });
 
     view.innerHTML = '';
@@ -686,6 +939,7 @@
     var given = q.given;
     var entry = el('div', 'card entry');
 
+    entry.id = 'q-' + (i + 1);
     var head = el('div', 'entry-head');
     var verdict = 'Kosong';
     var tone = 'blank';
@@ -709,6 +963,7 @@
     head.appendChild(v);
     entry.appendChild(head);
 
+    if (q.passage) entry.appendChild(el('p', 'passage', q.passage));
     entry.appendChild(el('p', 'q', q.prompt));
 
     var givenLine = el('div', 'answer-line');
@@ -1386,6 +1641,180 @@
       err.appendChild(retry);
       target.appendChild(err);
     });
+  }
+
+  // ── Review (Pembahasan) ─────────────────────────────────────────────────
+  function renderReview(id) {
+    view.innerHTML = '<div data-spec-screen="4"><div class="app">' +
+      '<div class="bar"><button class="btn-secondary" id="review-back" type="button" aria-label="Kembali ke hasil">' + BACK_SVG + '</button><div><div class="ttl">Pembahasan</div><div class="s">Memuat pembahasan...</div></div></div>' +
+      '<div class="card"><div class="skeleton" style="height:16px;width:90%;margin-bottom:8px"></div><div class="skeleton" style="height:16px;width:70%"></div></div>' +
+      '</div></div>';
+    var back = document.getElementById('review-back');
+    if (back) back.addEventListener('click', function () { navigate('/hasil/' + id); });
+    api('/api/attempts/' + id).then(function (data) {
+      if (!document.querySelector('[data-spec-screen="4"]')) return;
+      paintReview(data);
+    }).catch(function () {
+      if (!document.querySelector('[data-spec-screen="4"]')) return;
+      view.innerHTML = '<div data-spec-screen="4"><div class="app">' +
+        '<div class="bar"><button class="btn-secondary" id="review-back" type="button" aria-label="Kembali ke hasil">' + BACK_SVG + '</button><div><div class="ttl">Pembahasan</div></div></div>' +
+        '<div class="state-error"><div class="text-body font-medium">Pembahasan tidak bisa dimuat.</div><div class="text-small text-muted">Periksa koneksimu, lalu coba lagi.</div><button class="btn-secondary" id="review-retry" type="button">Coba lagi</button></div>' +
+        '</div></div>';
+      document.getElementById('review-back').addEventListener('click', function () { navigate('/hasil/' + id); });
+      document.getElementById('review-retry').addEventListener('click', function () { renderReview(id); });
+    });
+  }
+
+  function paintReview(data) {
+    var exam = data.exam;
+    var when = whenLabel(new Date(data.attempt.created_at));
+    view.innerHTML = '<div data-spec-screen="4"><div class="app">' +
+      '<div class="bar"><button class="btn-secondary" id="review-back" type="button" aria-label="Kembali ke hasil">' + BACK_SVG + '</button><div><div class="ttl">Pembahasan</div><div class="s" id="review-sub"></div></div></div>' +
+      '<div id="review-body"></div></div></div>';
+    document.getElementById('review-sub').textContent = exam.name + ', ' + when;
+    document.getElementById('review-back').addEventListener('click', function () { navigate('/hasil/' + data.attempt.id); });
+    var body = document.getElementById('review-body');
+    var group = null;
+    data.questions.forEach(function (q, i) {
+      if (group !== q.topic) {
+        group = q.topic;
+        body.appendChild(el('h2', 'review-heading', q.topic));
+      }
+      body.appendChild(resultEntry(q, i, exam));
+    });
+    if (location.hash && location.hash.indexOf('#q-') === 0) {
+      var target = document.querySelector(location.hash);
+      if (target) target.scrollIntoView({ block: 'start' });
+    }
+  }
+
+  // ── Progres ─────────────────────────────────────────────────────────────
+  function renderProgress() {
+    view.innerHTML = '<div data-spec-screen="5"><div class="app">' +
+      '<div class="bar"><button class="btn-secondary" id="progress-back" type="button" aria-label="Kembali ke beranda">' + BACK_SVG + '</button><div><div class="ttl">Progres</div><div class="s">Semua try out kamu</div></div></div>' +
+      '<div id="progress-body">' +
+      '<div class="card"><div class="skeleton" style="height:16px;width:40%;margin-bottom:10px"></div><div class="skeleton" style="height:150px"></div></div>' +
+      '<div class="card" style="margin-top:16px"><div class="skeleton" style="height:16px;width:50%;margin-bottom:10px"></div><div class="skeleton" style="height:14px;margin-bottom:8px"></div><div class="skeleton" style="height:14px;margin-bottom:8px"></div><div class="skeleton" style="height:14px"></div></div>' +
+      '</div></div></div>';
+    document.getElementById('progress-back').addEventListener('click', function () { navigate('/'); });
+
+    Promise.all([api('/api/attempts' + demoQuery), api('/api/summary' + demoQuery)]).then(function (res) {
+      if (!document.querySelector('[data-spec-screen="5"]')) return;
+      paintProgress(res[0].attempts || [], res[1]);
+    }).catch(function () {
+      if (!document.querySelector('[data-spec-screen="5"]')) return;
+      var body = document.getElementById('progress-body');
+      body.innerHTML = '';
+      var box = el('div', 'state-error card');
+      box.appendChild(el('div', 'text-body font-medium', 'Progres tidak bisa dimuat.'));
+      box.appendChild(el('div', 'text-small text-muted', 'Hasil try out tetap tersimpan. Periksa koneksimu, lalu coba lagi.'));
+      var retry = el('button', 'btn-secondary', 'Coba lagi');
+      retry.type = 'button';
+      retry.addEventListener('click', renderProgress);
+      box.appendChild(retry);
+      body.appendChild(box);
+    });
+  }
+
+  function trendChart(trend) {
+    var NS = 'http://www.w3.org/2000/svg';
+    var W = 320;
+    var H = 170;
+    var x0 = 34;
+    var x1 = 314;
+    var yTop = 10;
+    var yBot = 140;
+    var y = function (v) { return yBot - (v / 1000) * (yBot - yTop); };
+    var svg = document.createElementNS(NS, 'svg');
+    svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H);
+    svg.setAttribute('class', 'chart');
+    svg.setAttribute('role', 'img');
+    svg.setAttribute('aria-label', 'Tren skor UTBK: ' + trend.map(function (t) { return t.score; }).join(', '));
+    function mk(tag, attrs, text) {
+      var n = document.createElementNS(NS, tag);
+      Object.keys(attrs).forEach(function (k) { n.setAttribute(k, attrs[k]); });
+      if (text != null) n.textContent = text;
+      svg.appendChild(n);
+      return n;
+    }
+    [1000, 500, 0].forEach(function (v) {
+      mk('line', { x1: x0, y1: y(v), x2: x1, y2: y(v), class: 'grid-line' });
+      mk('text', { x: 28, y: y(v) + 3, 'text-anchor': 'end', class: 'ax' }, String(v));
+    });
+    mk('line', { x1: x0, y1: y(600), x2: x1, y2: y(600), class: 'pg-line' });
+    mk('text', { x: x0 + 2, y: y(600) - 5, class: 'pg-label' }, 'Passing grade 600');
+    var step = trend.length > 1 ? (x1 - x0) / (trend.length - 1) : 0;
+    var pts = trend.map(function (t, i) { return [x0 + step * i, y(t.score)]; });
+    if (pts.length > 1) {
+      mk('polyline', { points: pts.map(function (p) { return p[0] + ',' + p[1]; }).join(' '), class: 'chart-line' });
+    }
+    pts.forEach(function (p, i) {
+      var c = mk('circle', { cx: p[0], cy: p[1], r: 5, class: 'chart-dot' });
+      var title = document.createElementNS(NS, 'title');
+      title.textContent = (trend[i].score + ' pada ' + whenLabel(new Date(trend[i].created_at)));
+      c.appendChild(title);
+    });
+    var last = pts[pts.length - 1];
+    if (last) mk('text', { x: last[0], y: last[1] - 10, 'text-anchor': 'middle', class: 'chart-label' }, String(trend[trend.length - 1].score));
+    trend.forEach(function (t, i) {
+      if (trend.length > 5 && i % 2) return;
+      var d = new Date(t.created_at);
+      mk('text', { x: pts[i][0], y: 160, 'text-anchor': 'middle', class: 'ax' }, d.getDate() + ' ' + MONTHS_SHORT[d.getMonth()]);
+    });
+    return svg;
+  }
+
+  function paintProgress(attempts, summary) {
+    var body = document.getElementById('progress-body');
+    body.innerHTML = '';
+    var trend = (summary && summary.trend) || [];
+
+    var chartCard = el('section', 'card prog-card');
+    chartCard.appendChild(el('h3', 'h', 'Tren skor UTBK'));
+    chartCard.appendChild(el('div', 's', trend.length ? trend.length + ' try out terakhir' : 'Belum ada try out UTBK.'));
+    if (trend.length) {
+      chartCard.appendChild(trendChart(trend));
+    } else {
+      chartCard.appendChild(el('div', 's empty-inline', 'Belum ada try out UTBK. Selesaikan satu untuk melihat trenmu.'));
+    }
+    body.appendChild(chartCard);
+
+    var weak = summary && summary.weakest;
+    var weakCard = el('section', 'card prog-card');
+    weakCard.appendChild(el('h3', 'h', 'Subtes terlemah'));
+    if (weak) {
+      weakCard.appendChild(el('div', 's', 'Dari semua soal UTBK yang sudah kamu kerjakan.'));
+      weak.subtests.forEach(function (s) {
+        var row = el('div', 'wrow' + (s.name === weak.name ? ' weak' : ''));
+        var n = el('span', 'n', s.name);
+        if (s.name === weak.name) n.appendChild(el('span', 'weak-chip', 'Terlemah'));
+        row.appendChild(n);
+        var track = el('span', 'wtrack');
+        var bar = el('b', '');
+        bar.style.width = Math.max(0, Math.min(100, s.pct)) + '%';
+        track.appendChild(bar);
+        row.appendChild(track);
+        row.appendChild(el('span', 'p', s.pct + '%'));
+        weakCard.appendChild(row);
+      });
+    } else {
+      weakCard.appendChild(el('div', 's empty-inline', 'Belum ada soal UTBK yang dikerjakan.'));
+    }
+    body.appendChild(weakCard);
+
+    body.appendChild(el('h2', 'home-heading', 'Riwayat'));
+    var card = el('div', 'results-card');
+    if (!attempts.length) {
+      var empty = el('div', 'state-empty');
+      empty.appendChild(el('div', 'text-body font-medium', 'Belum ada hasil.'));
+      empty.appendChild(el('div', 'text-small text-muted', 'Selesaikan try out pertama untuk melihatnya di sini.'));
+      card.appendChild(empty);
+    } else {
+      var ul = el('ul', 'list');
+      attempts.forEach(function (a) { ul.appendChild(resultRow(a)); });
+      card.appendChild(ul);
+    }
+    body.appendChild(card);
   }
 
   // ── Boot ────────────────────────────────────────────────────────────────

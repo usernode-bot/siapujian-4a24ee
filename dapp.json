@@ -8,6 +8,10 @@
   "governance": {
     "preset": "you_or_the_group"
   },
+  "llm": {
+    "purpose": "Menjelaskan soal UTBK dan CPNS langkah demi langkah",
+    "suggested_daily_cap_cents": 100
+  },
   "tests": [
     {
       "name": "Dashboard",
@@ -40,24 +44,58 @@
       "expectSelector": ".rail-tile"
     },
     {
-      "name": "Exam navigator and flag",
+      "name": "Tanya AI button on the dashboard",
+      "path": "/",
+      "expectSelector": "[data-ai-launch]"
+    },
+    {
+      "id": "tanya-ai.chat",
+      "name": "Tanya AI chat",
+      "path": "/tanya-ai",
+      "expectText": "Jelaskan jawaban ini",
+      "visual": true,
+      "impact": [
+        "ai.js",
+        "ai-content.js",
+        "server.js",
+        "public/app.js",
+        "public/screens.css",
+        "public/index.html"
+      ]
+    },
+    {
+      "name": "Tanya AI with a question in context",
+      "path": "/tanya-ai?q=utbk-1",
+      "expectText": "Penalaran Matematika"
+    },
+    {
+      "name": "Saved explanations",
+      "path": "/tanya-ai/riwayat",
+      "expectText": "Belum ada percakapan tersimpan"
+    },
+    {
+      "name": "UTBK exam navigator",
       "path": "/ujian/utbk",
-      "expectText": "Tandai soal"
+      "expectText": "Ragu-ragu"
     },
     {
       "name": "Daily practice",
-      "path": "/latihan",
-      "expectText": "Latihan 5 soal"
+      "path": "/ujian/harian",
+      "expectSelector": ".rail-tile"
     },
     {
-      "name": "Progress empty state",
-      "path": "/progres",
-      "expectText": "Belum ada try out"
+      "name": "Dashboard daily card",
+      "path": "/",
+      "expectText": "Latihan harian"
     },
     {
-      "name": "Profile target",
-      "path": "/profil",
-      "expectText": "Kampus tujuan"
+      "name": "Progress",
+      "path": "/progres?demo=1",
+      "expectText": "Subtes terlemah",
+      "visual": true,
+      "impact": [
+        "public/**"
+      ]
     }
   ],
   "visibility": {

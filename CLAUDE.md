@@ -98,20 +98,25 @@ tables you've marked private), etc.
 Practise UTBK and CPNS exams like the real thing.
 
 A timed try-out app for Indonesian entrance exams. One dashboard shows the
-person's profile (name, target exam, campus and major for UTBK, target
-score), the daily streak and two modes, Try Out UTBK PTN and Try Out CAT
-CPNS. Try Out UTBK PTN asks 20 questions across four subtests (Penalaran
-Umum, Pengetahuan Kuantitatif, Literasi Bahasa Indonesia, Literasi Bahasa
-Inggris), five each, 50 points per correct answer, a total of 1000 with a
-passing grade of 600. Each mode opens a CAT-style quiz: question and options
-in a card, a numbered navigator that shows answered, flagged and empty
-questions, a countdown timer that ends the exam by itself at zero. The
-result shows the score against the passing grade, the counts of right,
-wrong and empty answers, the time used and a bar per subtest; a separate
-Tinjau jawaban page explains every question. Perkembangan charts the score
-history and names the weakest subtest, and a daily Latihan 5 soal keeps the
-streak. The 20 UTBK and 3 CPNS questions live in `questions.js` and are
-original practice content, not real exam questions.
+person's profile (name, target exam, optional goal) and two modes, Try Out
+UTBK PTN and Try Out CAT CPNS. Each mode opens a CAT-style quiz: question and
+options on the left, a numbered answer rail on the right, a countdown timer
+that ends the exam by itself at zero. The results screen shows the score
+against the passing grade and a step-by-step explanation for every question.
+Twenty UTBK questions in four subtests (five each), a daily five-question
+practice drawn from the same bank, and three CPNS questions live in
+`questions.js` and are placeholder content, not real exam questions. The
+three old UTBK questions stay there with `retired: true` so earlier attempts
+still open and review.
+
+**Tanya AI** is the study helper. It opens from a floating button on the
+dashboard (never during a running try out, so it cannot be used to cheat)
+and from a "Tanya AI" button on every question in Review mode. The chat
+screen (`/tanya-ai`) has quick chips, a sticky composer and a
+`Penjelasan tersimpan` list (`/tanya-ai/riwayat`). Opening it from a
+question attaches the question, the options, the viewer's answer and the
+answer key. Each person gets 10 questions a day (a day is a WIB calendar
+day), counted by the server; the counter resets at 00.00 WIB.
 
 ## Your people's data
 
@@ -142,9 +147,13 @@ change follows it, and updates it when a request changes the look on purpose.
   the mode cards' information pills are frosted light chips carrying the
   card's own colour, because white-on-tint text would fall under 4.5:1.
   Cards lift on hover and the mode cards scale to 1.02 (not under
-  reduced motion). Under the profile card sits the warm streak strip
-  ("Beruntun N hari" and **Latihan 5 soal**); the profile card names the
-  target campus and major with the gap to the latest UTBK score.
+  reduced motion).
+- **Exam states:** the answer sheet's tiles are indigo when answered, plain
+  when not, and amber with a dot when marked Ragu-ragu (the warm second
+  accent, the yellow a real CAT uses); the open question has a ring. Results
+  bars use the indigo accent for every subtest, so colour never means good or
+  bad; the dashes mark the passing grade. The Progres trend is one indigo line
+  with dots, the latest score labelled, over a dashed amber 600 line.
 - **Signature element:** the answer rail. Small rounded number tiles that
   fill indigo once the question is answered and take an amber ring when
   flagged, like an exam answer sheet; on a wide window it sits beside the
@@ -194,9 +203,20 @@ Re-theme by changing the token values there, keeping every text pair at
 
 ## App-specific conventions
 
-- All three tables, `profiles`, `attempts` and `daily_practices`, are marked
+- Both tables, `profiles` and `attempts`, are marked `staging:private`; both
+  are keyed by `user_id`, so `usernode-user-data.js` covers them as is.
+- Tanya AI's two tables, `ai_chats` (one saved conversation per question or
+  the general chat) and `ai_usage` (the daily counter), are also
   `staging:private` and keyed by `user_id`, so `usernode-user-data.js`
   covers them as is.
+- Tanya AI calls the platform's Claude proxy through `ai.js` (production
+  only). Staging previews and standalone runs have no proxy token, so
+  `ai.js` answers with the sample content in `ai-content.js`, and the page
+  labels those replies "Contoh". The routes, quota and stored history are
+  identical in both cases: only the answer source changes, never a feature.
+- The AI context attaches the answer key only for the viewer's own finished
+  attempt. A bare `?q=<question id>` deep link gets the question and its
+  options without the key.
 - `questions.js` is the only place a question's answer key, TKP weights or
   explanation is authored. The exam route never sends them; only the review
   route does, for the viewer's own attempt. An attempt keeps a snapshot of
@@ -206,12 +226,16 @@ Re-theme by changing the token values there, keeping every text pair at
 - An unfinished exam is never saved. Leaving the exam screen or closing the
   app discards it, flags included.
 - Scores are computed on the server by `questions.js`'s `score()`, never by
-  the page; the page only shows what an attempt stored. UTBK is
-  20 questions at 50 points each, 0 to 1000, passing grade 600.
-- A daily practice is not a try out: it never appears in Hasil terakhir or
-  Perkembangan, only in the streak. `daily_practices` holds one row per
-  person per day. The streak unions days with a practice and days with a
-  finished attempt.
-- Days (streak, daily practice) turn over at midnight in `Asia/Jakarta`.
-  The server derives the day from `req.now` with `Intl.DateTimeFormat`, so
-  a staging preview opened with `?un-now=` sees the right day.
+  the page; the page only shows what an attempt stored.
+- A right UTBK answer is worth 50 points (20 questions to 1000); Latihan
+  harian scores right answers out of 5. `score(mode, answers, ids)` also
+  returns the Benar/Salah/Kosong counts and per-subtest scores.
+- `attempts.question_ids` records the questions a try out was taken on (null
+  for the old three-question ones, which score against `LEGACY_IDS`), and
+  `duration_sec` the time used. Streak and the weakest subtest are worked out
+  when read; there is no streak table.
+- Days run on Jakarta time (WIB): `wibDay()` in `questions.js`. The dashboard,
+  Progres and the daily set all read `req.now`.
+- `profiles` also carries `target_campus`, `target_major` (free text) and
+  `target_score` (1 to 1000, null means the passing grade), plus
+  `demo_version` for the staging `?demo=1` reseed.

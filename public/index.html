@@ -148,6 +148,10 @@
             <span class="gap-chip" id="profile-gap" hidden></span>
           </span>
         </div>
+        <div class="gap" id="profile-gap" hidden>
+          <div class="meter" aria-hidden="true"><b data-gap="fill"></b><i data-gap="tick"></i></div>
+          <p data-gap="line"></p>
+        </div>
       </div>
       <a class="icon-btn" id="edit-profile" href="/profil" aria-label="Ubah profil">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
@@ -163,13 +167,35 @@
       <a class="btn-primary streak-btn" id="streak-action" href="/latihan">Latihan 5 soal</a>
     </section>
 
+    <section class="daily" id="daily-card" aria-label="Latihan harian">
+      <div class="daily-top">
+        <div>
+          <h3 class="daily-title">Latihan harian</h3>
+          <p class="s">5 soal, 10 menit. Soalnya berganti setiap hari.</p>
+        </div>
+        <span class="streak" id="streak-chip">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22c4 0 7-2.7 7-7 0-3.5-2.5-6-4-8-1 2-2 3-3.5 3.5C12 7 11 4 9 2c0 4-4 6.5-4 11.5C5 18.5 8 22 12 22Z"/></svg>
+          <span id="streak-label">Memuat...</span>
+        </span>
+      </div>
+      <p class="s daily-score" id="daily-score" hidden></p>
+      <p class="s daily-error" id="daily-error" hidden>Runtutan tidak bisa dimuat. <button class="daily-retry" id="daily-retry" type="button">Coba lagi</button></p>
+      <a class="btn-primary daily-btn" id="daily-btn" href="/ujian/harian">Mulai 5 soal</a>
+    </section>
+
+    <h2 class="home-heading">Hasil terakhir<span class="demo-note" data-usernode-demo-note hidden>Staging demo</span><a class="home-link" href="/progres">Lihat progres</a></h2>
+    <div class="results-card">
+      <ul class="list" id="results" hidden></ul>
+      <div id="results-state"></div>
+    </div>
+
     <h2 class="home-heading">Pilih mode ujian</h2>
     <div class="modes">
       <a class="mode-card utbk" data-mode="utbk" id="mode-utbk" href="/ujian/utbk">
         <svg class="mode-pattern" viewBox="0 0 320 220" aria-hidden="true"><circle cx="286" cy="6" r="98"/><circle cx="286" cy="6" r="58"/><circle class="solid" cx="14" cy="216" r="84"/></svg>
         <span class="mode-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M21.42 10.922a1 1 0 0 0-.019-1.838L12.83 5.18a2 2 0 0 0-1.66 0L2.6 9.08a1 1 0 0 0 0 1.832l8.57 3.908a2 2 0 0 0 1.66 0z"/><path d="M22 10v6"/><path d="M6 12.5V16a6 3 0 0 0 12 0v-3.5"/></svg></span>
         <h3 class="mode-title"><span>Try Out UTBK PTN</span><span class="target-chip">Target kamu</span></h3>
-        <p class="mode-desc">Benar dapat poin, salah dan kosong nol. Skor 0 sampai 1000.</p>
+        <p class="mode-desc">4 subtes, 5 soal per subtes. Benar dapat poin, salah dan kosong nol. Skor 0 sampai 1000.</p>
         <div class="mode-badges">
           <span class="mode-badge"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></svg><span data-meta="count"></span></span>
           <span class="mode-badge" data-meta="subtes" hidden></span>
@@ -192,15 +218,16 @@
       </a>
     </div>
 
-    <h2 class="home-heading">Hasil terakhir <a class="see-all" href="/progres">Lihat semua</a><span class="demo-note" data-usernode-demo-note hidden>Staging demo</span></h2>
-    <div class="results-card">
-      <ul class="list" id="results" hidden></ul>
-      <div id="results-state"></div>
-    </div>
+    <!-- Tanya AI lives on the dashboard only, never on the exam screen, so it
+         cannot be used while a try out is running. -->
+    <a class="ai-fab" href="/tanya-ai" data-ai-launch aria-label="Tanya AI">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/><path d="M20 3v4"/><path d="M22 5h-4"/><path d="M4 17v2"/><path d="M5 18H3"/></svg>
+      <span>Tanya AI</span>
+    </a>
     </div>
   </div>
   </div>
-  <template id="result-row-tpl"><li class="list-row result-row"><span class="result-icon"><svg class="ri-utbk" viewBox="0 0 24 24" aria-hidden="true"><path d="M21.42 10.922a1 1 0 0 0-.019-1.838L12.83 5.18a2 2 0 0 0-1.66 0L2.6 9.08a1 1 0 0 0 0 1.832l8.57 3.908a2 2 0 0 0 1.66 0z"/><path d="M22 10v6"/><path d="M6 12.5V16a6 3 0 0 0 12 0v-3.5"/></svg><svg class="ri-cpns" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg></span><div class="result-main"><div class="result-mode" data-row="mode"></div><div class="s" data-row="when"></div></div><div class="result-score"><span class="result-points" data-row="score"></span><span class="status-badge" data-row="verdict"><svg viewBox="0 0 24 24" aria-hidden="true"><path data-row="verdict-path" d=""/></svg><span data-row="verdict-label"></span></span></div></li></template>
+  <template id="result-row-tpl"><li class="list-row result-row"><span class="result-icon"><svg class="ri-utbk" viewBox="0 0 24 24" aria-hidden="true"><path d="M21.42 10.922a1 1 0 0 0-.019-1.838L12.83 5.18a2 2 0 0 0-1.66 0L2.6 9.08a1 1 0 0 0 0 1.832l8.57 3.908a2 2 0 0 0 1.66 0z"/><path d="M22 10v6"/><path d="M6 12.5V16a6 3 0 0 0 12 0v-3.5"/></svg><svg class="ri-cpns" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg><svg class="ri-daily" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22c4 0 7-2.7 7-7 0-3.5-2.5-6-4-8-1 2-2 3-3.5 3.5C12 7 11 4 9 2c0 4-4 6.5-4 11.5C5 18.5 8 22 12 22Z"/></svg></span><div class="result-main"><div class="result-mode" data-row="mode"></div><div class="s" data-row="when"></div></div><div class="result-score"><span class="result-points" data-row="score"></span><span class="status-badge" data-row="verdict"><svg viewBox="0 0 24 24" aria-hidden="true"><path data-row="verdict-path" d=""/></svg><span data-row="verdict-label"></span></span></div></li></template>
   <template id="skeleton-row-tpl"><li class="list-row result-row"><span class="skeleton" style="width:36px;height:36px;border-radius:12px;flex:none"></span><div class="result-main"><div class="skeleton" style="height:14px;width:55%;margin-bottom:6px"></div><div class="skeleton" style="height:12px;width:35%"></div></div><div class="result-score"><div class="skeleton" style="height:16px;width:52px"></div><div class="skeleton" style="height:16px;width:74px;border-radius:999px"></div></div></li></template>
   <!-- /usernode-spec-screens@1 -->
   <script src="/app.js"></script>
